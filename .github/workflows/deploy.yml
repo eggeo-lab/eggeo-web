@@ -1,13 +1,4 @@
-name: Deploy Vite Site
-
-on:
-  push:
-    branches: ["main"] # Asegúrate de que tu rama principal se llame main
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+id-token: write
 
 jobs:
   build:
@@ -19,15 +10,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Build
         run: npm run build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist # Vite genera la web en la carpeta dist
+          path: ./dist
 
   deploy:
     environment:
