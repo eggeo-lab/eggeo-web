@@ -1,4 +1,68 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
+
+// ==========================================
+// MOBILE CAROUSEL COMPONENT
+// ==========================================
+function MobileCarousel({ children, className = "" }) {
+  const [current, setCurrent] = useState(0);
+  const trackRef = useRef(null);
+  const startXRef = useRef(null);
+  const count = React.Children.count(children);
+
+  const goTo = useCallback(
+    (idx) => {
+      const clamped = Math.max(0, Math.min(idx, count - 1));
+      setCurrent(clamped);
+      if (trackRef.current) {
+        trackRef.current.scrollTo({
+          left: trackRef.current.offsetWidth * clamped,
+          behavior: "smooth",
+        });
+      }
+    },
+    [count],
+  );
+
+  // Sync dots when user scrolls manually
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const handleScroll = () => {
+      const idx = Math.round(track.scrollLeft / track.offsetWidth);
+      setCurrent(idx);
+    };
+    track.addEventListener("scroll", handleScroll, { passive: true });
+    return () => track.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <div className={`mob-carousel ${className}`}>
+      <div className="mob-carousel-track" ref={trackRef}>
+        {React.Children.map(children, (child, i) => (
+          <div className="mob-carousel-slide" key={i}>
+            {child}
+          </div>
+        ))}
+      </div>
+      <div className="mob-carousel-dots">
+        {Array.from({ length: count }).map((_, i) => (
+          <button
+            key={i}
+            className={`dot ${i === current ? "active" : ""}`}
+            onClick={() => goTo(i)}
+            aria-label={`Ir a ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ==========================================
 // 1. DATA & CONTENT (FULL)
@@ -130,12 +194,12 @@ const DATA = {
 
     work: [
       {
-        title: "Imperio Retail",
-        cat: "Ads & Strategy",
-        res: "+22% CTR",
-        img: "https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?auto=format&fit=crop&w=800",
+        title: "Gata Maula",
+        cat: "Ads & Content",
+        res: "Crecimiento continuo",
+        img: "gata-maula.jpeg",
         caseStudy:
-          "Rediseñamos la estrategia de embudo completo para Imperio, logrando bajar el costo por adquisición y aumentar la retención. La clave fue el contenido UGC auténtico mezclado con pauta agresiva en Meta.",
+          "Desarrollamos una estrategia de contenido y pauta en Meta que llevó a Gata Maula a más de 230 mil visualizaciones, 6.692 clics en enlace y 2.748 nuevos seguidores. La combinación de contenido auténtico con segmentación precisa disparó el engagement.",
       },
       {
         title: "Uila Café",
@@ -146,12 +210,12 @@ const DATA = {
           "Creamos una identidad visual que respira el aroma del café de especialidad. Desde el menú hasta el feed de Instagram, todo comunica calidez y calidad, atrayendo a un público más exigente.",
       },
       {
-        title: "SoulStill",
-        cat: "AI Art Direction",
-        res: "Lanzamiento",
-        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800",
+        title: "Risata",
+        cat: "Ads & Strategy",
+        res: "981k Visualizaciones",
+        img: "risata.jpeg",
         caseStudy:
-          "Utilizamos herramientas de IA Generativa para crear una campaña onírica que hubiera costado miles de dólares en producción física. El resultado fue viral y posicionó a la marca como innovadora.",
+          "Gestionamos la cuenta de Risata logrando 981 mil visualizaciones, 324 mil de alcance, 12.3 mil interacciones y 9.5 mil clics en enlace durante 2025. Una estrategia de contenido y pauta que convirtió su perfil en un canal de adquisición constante.",
       },
       {
         title: "Nutrix",
@@ -272,11 +336,12 @@ const DATA = {
     ],
     work: [
       {
-        title: "Imperio Retail",
-        cat: "Ads & Strategy",
-        res: "+22% CTR",
-        img: "https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?auto=format&fit=crop&w=800",
-        caseStudy: "Detailed case study description here.",
+        title: "Gata Maula",
+        cat: "Ads & Content",
+        res: "Ongoing growth",
+        img: "gata-maula.jpg",
+        caseStudy:
+          "We developed a content and Meta ads strategy that drove over 230k views, 6,692 link clicks and 2,748 new followers. Authentic content combined with precise targeting skyrocketed engagement.",
       },
       {
         title: "Uila Café",
@@ -286,11 +351,12 @@ const DATA = {
         caseStudy: "Detailed case study description here.",
       },
       {
-        title: "SoulStill",
-        cat: "AI Art Direction",
-        res: "Launch",
-        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800",
-        caseStudy: "Detailed case study description here.",
+        title: "Risata",
+        cat: "Ads & Strategy",
+        res: "981k Views",
+        img: "risata.jpg",
+        caseStudy:
+          "We managed Risata's account achieving 981k views, 324k reach, 12.3k interactions and 9.5k link clicks in 2025. A content and ads strategy that turned their profile into a constant acquisition channel.",
       },
       {
         title: "Nutrix",
@@ -311,18 +377,66 @@ const DATA = {
 };
 
 const CLIENTS = [
-  { name: "GENOVA", url: "https://instagram.com/genova_ok" },
-  { name: "BOCATANA", url: "https://instagram.com/bocatana" },
-  { name: "JD PIZZAS", url: "https://instagram.com/jdpizzas" },
-  { name: "CUOCA", url: "https://instagram.com/cuoca" },
-  { name: "MONAGUILLOS", url: "https://instagram.com/monaguillos" },
-  { name: "GATA MAULA", url: "https://instagram.com/gatamaula" },
-  { name: "EL IMPERIO", url: "https://instagram.com/elimperio" },
-  { name: "LA GORGONA", url: "https://instagram.com/lagorgona" },
-  { name: "WEBARF", url: "https://instagram.com/webarf" },
-  { name: "DISTRITO", url: "https://instagram.com/distrito" },
-  { name: "RISATA", url: "https://instagram.com/risata" },
-  { name: "NUDA", url: "https://instagram.com/nuda" },
+  {
+    name: "GENOVA",
+    logo: "logos/black_GNV-logo.png",
+    url: "https://instagram.com/genova_restobar",
+    cls: "",
+  },
+  {
+    name: "BOCATANA",
+    logo: "logos/black_BTA-logo.png",
+    url: "https://instagram.com/pizzeriabocatana",
+    cls: "logo-bocatana",
+  },
+  {
+    name: "JD PIZZAS",
+    logo: "logos/black_JD-logo.png",
+    url: "https://instagram.com/jdpizzasylomos",
+    cls: "",
+  },
+  {
+    name: "MONAGUILLOS",
+    logo: "logos/black_MNG-logo.png",
+    url: "https://instagram.com/monaguillosdeguemes",
+    cls: "",
+  },
+  {
+    name: "GATA MAULA",
+    logo: "logos/black_GMA-logo.png",
+    url: "https://instagram.com/gatamaula.ok",
+    cls: "",
+  },
+  {
+    name: "EL IMPERIO",
+    logo: "logos/black_IMP-logo.png",
+    url: "https://instagram.com/imperiomayorista",
+    cls: "",
+  },
+  {
+    name: "LA GORGONA",
+    logo: "logos/black_SLG-logo.png",
+    url: "https://instagram.com/studiolagorgona",
+    cls: "logo-gorgona",
+  },
+  {
+    name: "DISTRITO",
+    logo: "logos/black_DR-logo.png",
+    url: "https://instagram.com/distritorondeau",
+    cls: "",
+  },
+  {
+    name: "RISATA",
+    logo: "logos/black_RST-logo.png",
+    url: "https://instagram.com/risatapizza",
+    cls: "",
+  },
+  {
+    name: "ÓTICA MEDITERRANEA",
+    logo: "logos/black_OMD-logo.png",
+    url: "https://instagram.com/mediterraneaoptica",
+    cls: "",
+  },
 ];
 
 // ICONOS SVG
@@ -512,7 +626,7 @@ export default function App() {
             </div>
           </div>
           <p className="sub-hero">{T.sub}</p>
-          <div className="reveal" style={{ display: "flex", gap: 16 }}>
+          <div className="reveal hero-ctas">
             <a href="#work" className="btn primary">
               {T.cta.see}
             </a>
@@ -552,8 +666,13 @@ export default function App() {
                   target="_blank"
                   rel="noreferrer"
                   className="client-item"
+                  aria-label={c.name}
                 >
-                  {c.name}
+                  <img
+                    src={c.logo}
+                    alt={c.name}
+                    className={`client-logo-img ${c.cls}`}
+                  />
                 </a>
               ))}
             </div>
@@ -614,7 +733,8 @@ export default function App() {
         <section id="services" className="sec">
           <div className="container">
             <h2 className="sec-h">{T.titles.services}</h2>
-            <div className="grid grid-3">
+            {/* Desktop grid */}
+            <div className="grid grid-3 hide-mobile">
               {T.servicesList.map((s, i) => (
                 <div key={i} className="svc-card reveal">
                   <h3>{s.title}</h3>
@@ -625,6 +745,21 @@ export default function App() {
                   </ul>
                 </div>
               ))}
+            </div>
+            {/* Mobile carousel */}
+            <div className="show-mobile">
+              <MobileCarousel>
+                {T.servicesList.map((s, i) => (
+                  <div key={i} className="svc-card">
+                    <h3>{s.title}</h3>
+                    <ul>
+                      {s.items.map((item, j) => (
+                        <li key={j}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </MobileCarousel>
             </div>
           </div>
         </section>
@@ -649,7 +784,8 @@ export default function App() {
         <section id="pricing" className="sec">
           <div className="container">
             <h2 className="sec-h">{T.titles.pricing}</h2>
-            <div className="grid grid-3">
+            {/* Desktop grid */}
+            <div className="grid grid-3 hide-mobile">
               {T.pricing.map((p, i) => (
                 <div
                   key={i}
@@ -677,6 +813,35 @@ export default function App() {
                   </button>
                 </div>
               ))}
+            </div>
+            {/* Mobile carousel */}
+            <div className="show-mobile">
+              <MobileCarousel>
+                {T.pricing.map((p, i) => (
+                  <div key={i} className={`price-card ${p.best ? "best" : ""}`}>
+                    <h3>{p.name}</h3>
+                    <ul className="price-list">
+                      {p.features.map((f, index) => (
+                        <li key={index}>
+                          <span
+                            style={{
+                              color: "var(--egg-yellow)",
+                              fontWeight: 900,
+                              minWidth: 20,
+                            }}
+                          >
+                            ✓
+                          </span>
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    <button className="btn price-btn" onClick={scrollToContact}>
+                      Consultar
+                    </button>
+                  </div>
+                ))}
+              </MobileCarousel>
             </div>
           </div>
         </section>
@@ -732,7 +897,7 @@ export default function App() {
                     {T.form.or}
                   </span>
                   <a
-                    href="https://wa.me/5493510000000"
+                    href="https://wa.me/543571619535"
                     target="_blank"
                     className="btn wa"
                     style={{ flex: 1 }}
@@ -756,17 +921,24 @@ export default function App() {
                 Ideas absurdas, resultados serios.
               </p>
             </div>
-            <div className="foot-col">
-              <h4>Menú</h4>
-              <a href="#work">Proyectos</a>
-              <a href="#team">Equipo</a>
-              <a href="#pricing">Packs</a>
-            </div>
-            <div className="foot-col">
-              <h4>Social</h4>
-              <a href="#">Instagram</a>
-              <a href="#">LinkedIn</a>
-              <a href="#">Behance</a>
+            <div className="foot-cols-bottom">
+              <div className="foot-col">
+                <h4>Menú</h4>
+                <a href="#work">Proyectos</a>
+                <a href="#team">Equipo</a>
+                <a href="#pricing">Packs</a>
+              </div>
+              <div className="foot-col">
+                <h4>Social</h4>
+                <a
+                  href="https://instagram.com/eggeo.lab"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Instagram
+                </a>
+                <a href="https://www.linkedin.com/company/eggeo/">LinkedIn</a>
+              </div>
             </div>
           </div>
           <div className="copyright">
@@ -820,7 +992,7 @@ export default function App() {
 
       {/* FLOAT WA */}
       <a
-        href="https://wa.me/5493510000000"
+        href="https://wa.me/543571619535"
         target="_blank"
         className="wa-float"
         aria-label="WhatsApp"
