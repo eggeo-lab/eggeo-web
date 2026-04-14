@@ -457,8 +457,8 @@ img {
 
 @media (max-width: 900px) {
   .client-logo-img {
-    height: 50px;
-    width: 140px;
+    height: 150px;
+    width: 200px;
   }
   .client-logo-img.logo-bocatana {
     height: 100px;
