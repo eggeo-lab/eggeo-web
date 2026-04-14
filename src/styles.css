@@ -460,8 +460,8 @@ img {
     max-height: 130px;
   }
   .client-logo-img {
-    height: 250px;
-    width: 140px;
+    height: 250px !important;
+    width: 140px !important;
   }
   .client-logo-img.logo-bocatana {
     height: 100px;
