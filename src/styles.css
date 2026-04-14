@@ -456,9 +456,12 @@ img {
 }
 
 @media (max-width: 900px) {
+  .marquee-wrapper {
+    max-height: 130px;
+  }
   .client-logo-img {
-    height: 150px;
-    width: 200px;
+    height: 250px;
+    width: 140px;
   }
   .client-logo-img.logo-bocatana {
     height: 100px;
