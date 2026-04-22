@@ -218,12 +218,12 @@ const DATA = {
           "Gestionamos la cuenta de Risata logrando 981 mil visualizaciones, 324 mil de alcance, 12.3 mil interacciones y 9.5 mil clics en enlace durante 2025. Una estrategia de contenido y pauta que convirtió su perfil en un canal de adquisición constante.",
       },
       {
-        title: "Nutrix",
-        cat: "Web & SEO",
-        res: "+45% Leads",
-        img: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800",
+        title: "AGPNYC",
+        cat: "AI Content",
+        res: "Décimo Aniversario",
+        img: "agpnyc.jpg",
         caseStudy:
-          "Optimizamos la landing page de ventas reduciendo la fricción en el checkout y mejorando la velocidad de carga en un 40%. Las conversiones se dispararon en el primer mes de implementación.",
+          "Creamos un video generado íntegramente con IA a partir de sesiones fotográficas anteriores de la productora, para celebrar su décimo aniversario. El resultado fue una pieza audiovisual onírica que capturó la esencia de una década de trabajo sin necesidad de nueva producción.",
       },
     ],
     form: {
@@ -359,11 +359,12 @@ const DATA = {
           "We managed Risata's account achieving 981k views, 324k reach, 12.3k interactions and 9.5k link clicks in 2025. A content and ads strategy that turned their profile into a constant acquisition channel.",
       },
       {
-        title: "Nutrix",
-        cat: "Web & SEO",
-        res: "+45% Leads",
-        img: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=800",
-        caseStudy: "Detailed case study description here.",
+        title: "AGPNYC",
+        cat: "AI Content",
+        res: "10th Anniversary",
+        img: "agpnyc.jpg",
+        caseStudy:
+          "We created a fully AI-generated video from the production company's past photo sessions, celebrating their 10th anniversary. The result was a dreamy audiovisual piece capturing a decade of work without any new production.",
       },
     ],
     form: {
@@ -435,6 +436,18 @@ const CLIENTS = [
     name: "ÓTICA MEDITERRANEA",
     logo: "logos/black_OMD-logo.png",
     url: "https://instagram.com/mediterraneaoptica",
+    cls: "",
+  },
+  {
+    name: "NUDA STUDIO",
+    logo: "logos/black_nuda.png",
+    url: "https://instagram.com/nuda_studiopdc",
+    cls: "",
+  },
+  {
+    name: "CUOCA",
+    logo: "logos/black_cuoca.png",
+    url: "https://instagram.com/cuoca.ricoychulo",
     cls: "",
   },
 ];

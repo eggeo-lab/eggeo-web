@@ -420,7 +420,7 @@ img {
 .marquee-track {
   display: inline-flex;
   gap: 20px;
-  animation: scroll 40s linear infinite;
+  animation: scroll 15s linear infinite;
   align-items: center;
 }
 .marquee-wrapper:hover .marquee-track {
@@ -456,18 +456,38 @@ img {
 }
 
 @media (max-width: 900px) {
+  /* Mobile: scroll táctil en vez de animación */
   .marquee-wrapper {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     max-height: 130px;
+    height: 130px;
+  }
+  .marquee-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+  .marquee-track {
+    animation: none;
+    display: inline-flex;
+    gap: 16px;
+    animation: scroll 10s linear infinite;
+    padding: 0 24px;
+  }
+  /* Solo mostrar una copia de los logos en mobile */
+  .marquee-track .client-item:nth-child(n + 13) {
+    display: none;
   }
   .client-logo-img {
     height: 250px !important;
     width: 140px !important;
   }
   .client-logo-img.logo-bocatana {
-    height: 100px;
+    height: 100px !important;
   }
   .client-logo-img.logo-gorgona {
-    height: 80px;
+    height: 80px !important;
   }
 }
 [data-theme="dark"] .client-logo-img {
@@ -903,6 +923,9 @@ footer {
   .sec-h {
     font-size: 32px;
     margin-bottom: 36px;
+  }
+  #clients {
+    padding-bottom: 0 !important;
   }
 
   .grid-3,
