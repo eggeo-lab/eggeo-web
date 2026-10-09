@@ -1,3 +1,6 @@
 # .gitignore
+node_modules/
 dist/
-node_modules/dist/
+dist-ssr/
+.DS_Store
+*.local

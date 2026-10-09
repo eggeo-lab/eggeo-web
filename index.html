@@ -1,19 +1,36 @@
 <!doctype html>
-<html lang="es">
+<html lang="<!--lang-->" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EGGEO | Ideas Absurdas, Resultados Serios</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap"
-      rel="stylesheet"
-    />
+    <!--head-->
+    <meta name="theme-color" content="#FFD600" />
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon-48.png" sizes="48x48" type="image/png" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      // Tema y coordenadas del egg-wipe antes del primer pintado (evita parpadeos).
+      (function () {
+        var d = document.documentElement;
+        d.classList.add("js");
+        try {
+          var t = localStorage.getItem("eggeo-theme");
+          if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          d.setAttribute("data-theme", t);
+          var p = sessionStorage.getItem("eggeo-vt");
+          if (p) {
+            p = p.split(",");
+            d.style.setProperty("--vt-x", p[0] + "px");
+            d.style.setProperty("--vt-y", p[1] + "px");
+            sessionStorage.removeItem("eggeo-vt");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div id="root"><!--app--></div>
+    <script type="module" src="/src/entry-client.jsx"></script>
   </body>
 </html>

@@ -1,60 +1,49 @@
-# EGGEO — Landing (React + Vite)
+# EGGEO — Web (React + Vite, prerenderizada)
 
-Landing one‑page moderna para **EGGEO** (branding fijo, ES/EN, dark mode, overlay móvil, modales de packs y “egg‑wipe” para casos).
+Sitio de **EGGEO**, agencia creativa de Córdoba, Argentina — «Ideas absurdas, resultados serios».
+Español e inglés (`/` y `/en/`), una página HTML estática por ruta, desplegado en GitHub Pages
+(`www.eggeo.com.ar`).
 
 ## Requisitos
-- **Node.js 18+** (recomendado LTS)
-- **npm** 9+ (o `pnpm`/`yarn`, ajustes de comandos abajo)
+- Node.js 20+ y npm
+- macOS solo para regenerar medios (`npm run media`, `npm run og`)
 
-## Instalación
+## Scripts
 ```bash
-# 1) Entrá a la carpeta
-cd eggeo-landing
-
-# 2) Instalá dependencias
 npm install
-```
-
-## Desarrollo
-```bash
-npm run dev
-# Abre http://localhost:5173
-```
-
-## Build de producción
-```bash
-npm run build
-npm run preview  # levanta un server local para testear el build
+npm run dev       # desarrollo en http://localhost:5173 (render en el cliente)
+npm run build     # build + prerender de todas las rutas → dist/
+npm run preview   # sirve dist/ en http://localhost:4173 (igual que producción)
+npm run check     # valida SEO y enlaces del build (titles, canonical, hreflang, sitemap, JSON-LD, alt)
+npm run media     # regenera public/media desde ../eggeo-material y media-src (macOS)
+npm run og        # regenera las imágenes Open Graph de public/og (macOS)
 ```
 
 ## Estructura
 ```
-eggeo-landing/
-  ├─ index.html
-  ├─ package.json
-  ├─ vite.config.js
-  ├─ public/
-  │   └─ logo.png          # (opcional, reemplazá por tu logo)
-  └─ src/
-      ├─ main.jsx          # bootstrap React
-      ├─ App.jsx           # UI principal (componentes incluidos)
-      └─ styles.css        # estilos globales
+index.html              plantilla (el prerender completa <!--lang-->, <!--head--> y <!--app-->)
+src/
+  entry-client.jsx      hidratación en el navegador
+  entry-server.jsx      render para el prerender
+  routes.js             mapa de rutas ES/EN (fuente de sitemap, hreflang y enlaces)
+  App.jsx               layout + selección de página
+  pages/Pages.jsx       inicio, servicios, servicio, proyectos, caso, agencia, contacto, 404
+  components/           header/footer, hero, secciones, formularios, marca, íconos
+  content/              textos ES/EN, casos, servicios, packs y media.json (generado)
+  seo/head.js           title, description, canonical, hreflang, Open Graph y JSON-LD
+  lib/                  medios responsivos, hooks, eventos
+  styles.css            tokens del Design System + estilos
+scripts/
+  prerender.mjs         genera dist/<ruta>/index.html, 404.html, sitemap.xml y robots.txt
+  check.mjs             verificación SEO y de enlaces
+  media/                pipeline de imágenes, video, logo e imágenes OG (sips + Swift)
+media-src/              originales del repo usados por el pipeline (no se publican)
+public/                 media optimizada, fuentes, íconos y OG (se publica tal cual)
 ```
 
-## Personalización rápida
-- Idioma por defecto: editar `lang` en `App.jsx` (`es`/`en`).
-- Modo: `theme` (`light`/`dark`), también desde el toggle del header.
-- Logos de clientes: reemplazá la lista en `App.jsx` (componente `LogoWall`).
-- Packs: editar `packData` (precios/items) en `App.jsx`.
-- Métricas demo (Insights): en la sección `INSIGHTS` de `App.jsx`.
-
-## Notas
-- Accesible: traps de foco en modales/menu, `prefers-reduced-motion`, contrastes AA.
-- Overlay móvil **opaco** (no transparente) + blur sutil.
-- “Egg‑wipe” al abrir un caso (overlay con clip‑path elíptico).
-- Micro‑animaciones suaves y `scroll-margin-top` para anclas con header sticky.
-- Smoke checks mínimos por consola (no requiere Jest).
-
----
-
-Hecho con ❤️ para EGGEO.
+## Contenido
+- Textos: `src/content/*.js`. Cada caso y servicio tiene versión `es` y `en`.
+- Cifras: solo datos verificados con fuente y período (ver comentarios en `work.js`).
+- Formulario: Formspree (`ORG.formspree` en `src/content/site.js`).
+- Eventos de conversión: `track()` en `src/lib/track.js` escribe en `window.dataLayer` si existe;
+  no hay trackers instalados.

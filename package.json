@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/entry-server.jsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview",
+    "check": "node scripts/check.mjs",
+    "media": "bash scripts/media/build-media.sh",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist",
+    "og": "node scripts/media/build-og.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
