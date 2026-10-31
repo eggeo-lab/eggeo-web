@@ -31,7 +31,10 @@ let order = 1;
 const add = (collection, id, data) => rows.push([collection, id, JSON.stringify(data), order++]);
 
 seed.clients.forEach(({ id, ...data }, i) => add("clients", `seed-c-${String(i + 1).padStart(2, "0")}`, data));
-seed.expenses.forEach(({ id, ...data }, i) => add("expenses", `seed-e-${String(i + 1).padStart(2, "0")}`, data));
+// Los gastos del SEED son suscripciones mensuales activas desde 2026-10 (igual que migrations/0001).
+seed.expenses.forEach(({ id, ...data }, i) =>
+  add("expenses", `seed-e-${String(i + 1).padStart(2, "0")}`, { tipo: "mensual", desde: "2026-10", hasta: "", mes: "", ...data }),
+);
 if (seed.reparto) add("settings", "main", { reparto: seed.reparto });
 
 const out = [

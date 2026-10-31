@@ -6,13 +6,15 @@
 
 const S = "string";
 const N = "number";
+const M = "month"; // "AAAA-MM" o vacío
 const FIELDS = {
   clients: { cliente: S, servicio: S, cuenta: S, precio: N, contacto: S, frecuencia: S, contenido: S, feeAct: S, manu: N, elias: N, nico: N },
-  expenses: { concepto: S, categoria: S, pagadoPor: S, monto: N, nota: S },
+  expenses: { concepto: S, categoria: S, pagadoPor: S, monto: N, nota: S, tipo: ["mensual", "unica"], mes: M, desde: M, hasta: M },
   settings: { reparto: ["proporcional", "iguales"] },
 };
 const DEFAULT_SETTINGS = { reparto: "proporcional" };
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const MAX_STRING = 500;
 const MAX_OPS = 500;
 
@@ -38,6 +40,7 @@ function validValue(type, value) {
   if (Array.isArray(type)) return type.includes(value);
   if (type === S) return typeof value === "string" && value.length <= MAX_STRING;
   if (type === N) return value === "" || (typeof value === "number" && Number.isFinite(value));
+  if (type === M) return value === "" || (typeof value === "string" && MONTH_RE.test(value));
   return false;
 }
 

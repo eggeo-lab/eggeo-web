@@ -11,6 +11,7 @@ src/data.js          lectura y guardado en D1 (fusión por campo)
 src/login.js         página de login
 src/dashboard.html   el dashboard (React UMD + Babel), sin datos adentro
 schema.sql           tablas de D1
+migrations/          cambios en los datos de D1 (se aplican con npm run db:migrate)
 scripts/hash-password.mjs   genera contraseñas y sus hashes
 scripts/build-seed.mjs      arma seed.sql desde el SEED de ../dashboard.html (no se commitea)
 ```
@@ -25,7 +26,7 @@ Todo se corre en una terminal dentro de esta carpeta (`eggeo-ext/hueveados`).
 2. `npx wrangler login`: abre el navegador para autorizar la cuenta de Cloudflare.
 3. `npx wrangler d1 create eggeo-hueveados`: crea la base. Copiar el `database_id` que muestra y
    pegarlo en `wrangler.toml` en lugar de `PEGAR_ACA_EL_DATABASE_ID`.
-4. `npm run db:schema`: crea las tablas.
+4. `npm run db:schema` y después `npm run db:migrate`: crean las tablas y aplican las migraciones.
 5. `npm run db:seed`: carga los clientes y gastos del SEED (lee `../dashboard.html`). Se puede
    repetir sin duplicar nada.
 6. `npx wrangler deploy`: publica el Worker.
@@ -37,6 +38,7 @@ Todo se corre en una terminal dentro de esta carpeta (`eggeo-ext/hueveados`).
 ## Uso diario
 
 - Publicar cambios de código: `npx wrangler deploy`.
+- Si el cambio trae una migración nueva en `migrations/`: primero `npm run db:migrate`, después `npx wrangler deploy`.
 - Cambiar una contraseña: `npm run hash` y `npx wrangler secret put HV_PASS_<SOCIO>`.
 - Cerrar todas las sesiones abiertas:
   `npx wrangler d1 execute eggeo-hueveados --remote --command "DELETE FROM sessions"`.
@@ -49,6 +51,7 @@ Todo se corre en una terminal dentro de esta carpeta (`eggeo-ext/hueveados`).
 
 ```
 npm run db:schema:local
+npm run db:migrate:local
 npm run db:seed:local
 npm run hash -- "una-contraseña-de-prueba"   # pegar el hash en .dev.vars como HV_PASS_MANU=...
 npm run dev                                  # http://localhost:8787/hueveados/
