@@ -1,0 +1,22 @@
+# Worker del backoffice privado: atiende solo eggeo.com.ar/hueveados*.
+# El resto del dominio sigue yendo a GitHub Pages sin pasar por este Worker.
+name = "eggeo-hueveados"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+# Sin URL pública *.workers.dev: al backoffice solo se entra por el dominio.
+workers_dev = false
+preview_urls = false
+
+routes = [
+  { pattern = "www.eggeo.com.ar/hueveados*", zone_name = "eggeo.com.ar" },
+  { pattern = "eggeo.com.ar/hueveados*", zone_name = "eggeo.com.ar" },
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "eggeo-hueveados"
+database_id = "176c60e8-37a9-4da8-9f47-2bf9ce033ac4"
+
+# Secretos (no van en este archivo): HV_PASS_MANU, HV_PASS_ELIAS, HV_PASS_NICO.
+# Se cargan con `npx wrangler secret put HV_PASS_MANU`. Ver README.md.

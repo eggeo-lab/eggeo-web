@@ -1,0 +1,6 @@
+node_modules/
+.wrangler/
+# Hashes locales para `wrangler dev`
+.dev.vars
+# Generado desde dashboard.html: tiene datos reales de clientes y el repo es público
+seed.sql

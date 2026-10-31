@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Finanzas de la Agencia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky header + resumen en tarjetas, debajo pestañas con tablas operables. Tema oscuro único, tinta azul profunda con acento azafrán. */
+:root{
+  --bg:#0d1016; --surface:#141922; --raised:#1a2130; --line:#252d3d; --line-soft:#1d2433;
+  --fg:#e7eaf0; --muted:#8b93a6; --faint:#5d6578;
+  --accent:#f2b84b; --accent-ink:#1a1305;
+  --manu:#6cb8ff; --elias:#b79cff; --nico:#ff8f7a;
+  --good:#5fd4a0; --warn:#f2b84b; --bad:#ff6b6b;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Manrope", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:14px;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.display{font-family:var(--f-display);text-wrap:balance;letter-spacing:-.01em}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line-soft);border-radius:14px}
+.scroll-x{overflow-x:auto}
+table.grid{width:100%;border-collapse:separate;border-spacing:0}
+table.grid th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface);position:sticky;top:0}
+table.grid td{padding:6px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+table.grid tbody tr:hover td{background:#171d29}
+table.grid tfoot td{padding:12px 10px;border-top:1px solid var(--line);font-weight:600}
+.cell{width:100%;background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 8px;color:var(--fg);font:inherit;outline:none;transition:border-color .15s,background .15s}
+.cell:hover{border-color:var(--line)}
+.cell:focus{border-color:var(--accent);background:var(--raised)}
+.cell.num{text-align:right}
+select.cell{appearance:none;cursor:pointer}
+select.cell option{background:var(--raised)}
+input[type=month].cell::-webkit-calendar-picker-indicator{filter:invert(.7)}
+.pct{width:56px;text-align:center;padding:6px 4px}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:8px 14px;font-weight:600;font-size:13px;border:1px solid var(--line);background:var(--raised);color:var(--fg);cursor:pointer;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--faint)}
+.btn-accent{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-accent:hover{background:#f7c766;border-color:#f7c766}
+.btn:focus-visible,.tab:focus-visible,.icon-btn:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.icon-btn{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--faint);background:transparent;border:none;cursor:pointer}
+.icon-btn:hover{color:var(--bad);background:#2a1a1f}
+.tab{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;color:var(--muted);font-weight:600;cursor:pointer;background:transparent;border:none;white-space:nowrap}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected=true]{color:var(--fg);background:var(--raised);box-shadow:inset 0 0 0 1px var(--line)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.chip-warn{background:rgba(242,184,75,.12);color:var(--warn)}
+.chip-bad{background:rgba(255,107,107,.12);color:var(--bad)}
+.chip-good{background:rgba(95,212,160,.1);color:var(--good)}
+.chip-muted{background:var(--raised);color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
+.seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:none;background:transparent;color:var(--muted);padding:6px 12px;border-radius:7px;font-weight:600;font-size:12px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--raised);color:var(--fg)}
+.bar{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--line-soft)}
+.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body style="margin:0">
+<div id="root"></div>
+
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>window.react = window.React; // el UMD de lucide-react busca React en minúscula</script>
+<script src="https://cdn.jsdelivr.net/npm/lucide-react@0.344.0/dist/umd/lucide-react.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+const L = window.LucideReact || {};
+const Icon = ({ name, size = 16, ...p }) => {
+  const C = L[name];
+  return C ? <C size={size} strokeWidth={1.8} {...p} /> : <span style={{ width: size, height: size, display: "inline-block" }} />;
+};
+
+const SOCIOS = [
+  { key: "manu", name: "Manu", color: "var(--manu)" },
+  { key: "elias", name: "Elias", color: "var(--elias)" },
+  { key: "nico", name: "Nico", color: "var(--nico)" },
+];
+const PAGADORES = ["Agencia", "Manu", "Elias", "Nico"];
+const CATEGORIAS = ["Plataforma", "Editor", "CM"];
+
+const uid = () => crypto.randomUUID();
+const money = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Math.round(n || 0));
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+/* ---------- Datos compartidos (D1 vía /hueveados/api) ---------- */
+// Se manda solo lo que cambió respecto del último estado confirmado por el servidor: campos editados,
+// altas y bajas. Así nunca se pisa lo que otro socio agregó o editó en otros registros; si dos
+// editan el mismo campo, gana el último en guardar.
+const API = "/hueveados/api";
+const COLECCIONES = ["clients", "expenses"];
+const AJUSTES = ["reparto"];
+const VACIO = { clients: [], expenses: [], reparto: "proporcional" };
+const SAVE_DELAY = 800;
+const POLL_MS = 20000;
+const RETRY_MS = 5000;
+
+class SesionVencida extends Error {}
+async function api(path, options) {
+  const res = await fetch(API + path, { credentials: "same-origin", cache: "no-store", ...options });
+  if (res.status === 401) { location.href = "/hueveados/login"; throw new SesionVencida(); }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function indexar(state) {
+  const m = new Map();
+  COLECCIONES.forEach((col) => state[col].forEach((r) => m.set(`${col}/${r.id}`, { col, r })));
+  return m;
+}
+
+function diferencias(desde, hasta) {
+  const upserts = [], deletes = [];
+  const a = indexar(desde), b = indexar(hasta);
+  for (const [k, { col, r }] of b) {
+    const prev = a.get(k)?.r;
+    const { id, ...campos } = r;
+    const data = {};
+    for (const f in campos) if (!prev || campos[f] !== prev[f]) data[f] = campos[f];
+    if (Object.keys(data).length) upserts.push({ collection: col, id, data });
+  }
+  for (const [k, { col, r }] of a) if (!b.has(k)) deletes.push({ collection: col, id: r.id });
+  const ajustes = {};
+  AJUSTES.forEach((f) => { if (hasta[f] !== desde[f]) ajustes[f] = hasta[f]; });
+  if (Object.keys(ajustes).length) upserts.push({ collection: "settings", id: "main", data: ajustes });
+  return { upserts, deletes };
+}
+const sinCambios = (c) => c.upserts.length === 0 && c.deletes.length === 0;
+
+function aplicar(state, { upserts, deletes }) {
+  let next = { ...state };
+  for (const u of upserts) {
+    if (u.collection === "settings") { next = { ...next, ...u.data }; continue; }
+    const list = next[u.collection];
+    next[u.collection] = list.some((r) => r.id === u.id)
+      ? list.map((r) => (r.id === u.id ? { ...r, ...u.data } : r))
+      : [...list, { id: u.id, ...u.data }];
+  }
+  for (const d of deletes) next[d.collection] = next[d.collection].filter((r) => r.id !== d.id);
+  return next;
+}
+
+function useDatosCompartidos() {
+  const [data, setDataState] = useState(null);
+  const [user, setUser] = useState("");
+  const [status, setStatus] = useState("loading"); // loading | saved | saving | error
+  const [loadError, setLoadError] = useState(false);
+  const base = useRef(null);    // último estado confirmado por el servidor
+  const actual = useRef(null);  // estado local, con lo que todavía no se guardó
+  const enVuelo = useRef(null); // guardado en curso
+  const timer = useRef(null);
+
+  const pendiente = () => base.current && actual.current && !sinCambios(diferencias(base.current, actual.current));
+  const recibir = (srv) => { const { user, ...state } = srv; if (user) setUser(user); base.current = state; return state; };
+  const mostrar = (state) => { actual.current = state; setDataState(state); };
+
+  const guardar = useCallback(() => {
+    clearTimeout(timer.current);
+    if (enVuelo.current) return enVuelo.current; // al terminar se vuelve a programar si quedó algo
+    if (!pendiente()) { if (base.current) setStatus("saved"); return Promise.resolve(); }
+    const enviado = actual.current;
+    setStatus("saving");
+    enVuelo.current = (async () => {
+      try {
+        const srv = recibir(await api("/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(diferencias(base.current, enviado)),
+          keepalive: true,
+        }));
+        // Lo que se editó mientras viajaba el pedido se vuelve a aplicar sobre la respuesta.
+        const resto = diferencias(enviado, actual.current);
+        mostrar(aplicar(srv, resto));
+        if (sinCambios(resto)) setStatus("saved");
+        else timer.current = setTimeout(guardar, SAVE_DELAY);
+      } catch (e) {
+        if (e instanceof SesionVencida) return;
+        setStatus("error");
+        timer.current = setTimeout(guardar, RETRY_MS);
+      } finally {
+        enVuelo.current = null;
+      }
+    })();
+    return enVuelo.current;
+  }, []);
+
+  // Mismo uso que setState; actualiza la referencia en el acto para que ningún guardado la pise.
+  const setData = useCallback((fn) => {
+    const next = typeof fn === "function" ? fn(actual.current) : fn;
+    actual.current = next;
+    setDataState(next);
+    setStatus("saving");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(guardar, SAVE_DELAY);
+  }, [guardar]);
+
+  const cargar = useCallback(async () => {
+    setLoadError(false);
+    try { mostrar(recibir(await api("/data"))); setStatus("saved"); }
+    catch (e) { if (!(e instanceof SesionVencida)) setLoadError(true); }
+  }, []);
+
+  // Trae los cambios de los otros socios cuando no hay nada propio pendiente.
+  const refrescar = useCallback(async () => {
+    if (!base.current || enVuelo.current || pendiente() || document.hidden) return;
+    try {
+      const srv = await api("/data");
+      if (enVuelo.current || pendiente()) return;
+      mostrar(recibir(srv));
+    } catch {}
+  }, []);
+
+  // Guarda todo lo pendiente (antes de cerrar sesión).
+  const flush = useCallback(async () => {
+    for (let i = 0; i < 3 && (pendiente() || enVuelo.current); i++) await guardar();
+  }, [guardar]);
+
+  useEffect(() => {
+    cargar();
+    const poll = setInterval(refrescar, POLL_MS);
+    const onVisible = () => (document.hidden ? guardar() : refrescar());
+    const onUnload = (e) => { if (pendiente() || enVuelo.current) { guardar(); e.preventDefault(); e.returnValue = ""; } };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("beforeunload", onUnload);
+    };
+  }, []);
+
+  return { data, setData, status, user, loadError, reload: cargar, flush };
+}
+
+function monthsSince(ym) {
+  if (!ym) return null;
+  const [y, m] = ym.split("-").map(Number);
+  const now = new Date();
+  return (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+}
+const fmtMonth = (ym) => { if (!ym) return "—"; const [y, m] = ym.split("-"); return `${MESES[+m - 1]} ${y}`; };
+
+function useFinanzas(data) {
+  return useMemo(() => {
+    const ingresos = data.clients.reduce((s, c) => s + (+c.precio || 0), 0);
+    const gastos = data.expenses.reduce((s, e) => s + (+e.monto || 0), 0);
+    const bruto = { manu: 0, elias: 0, nico: 0 };
+    const porCliente = data.clients.map((c) => {
+      const row = { id: c.id, cliente: c.cliente, precio: +c.precio || 0 };
+      SOCIOS.forEach(({ key }) => { row[key] = ((+c.precio || 0) * (+c[key] || 0)) / 100; bruto[key] += row[key]; });
+      row.sinAsignar = row.precio - row.manu - row.elias - row.nico;
+      return row;
+    });
+    const totalBruto = bruto.manu + bruto.elias + bruto.nico;
+    const peso = {};
+    SOCIOS.forEach(({ key }) => {
+      peso[key] = data.reparto === "iguales" || totalBruto === 0 ? 1 / 3 : bruto[key] / totalBruto;
+    });
+    const liq = {};
+    SOCIOS.forEach(({ key, name }) => {
+      const asignado = gastos * peso[key];
+      const reintegro = data.expenses.filter((e) => e.pagadoPor === name).reduce((s, e) => s + (+e.monto || 0), 0);
+      liq[key] = { bruto: bruto[key], peso: peso[key], asignado, reintegro, ganancia: bruto[key] - asignado, neto: bruto[key] - asignado + reintegro };
+    });
+    const porCategoria = CATEGORIAS.map((cat) => ({ cat, total: data.expenses.filter((e) => e.categoria === cat).reduce((s, e) => s + (+e.monto || 0), 0) }));
+    const sinAsignar = porCliente.reduce((s, r) => s + r.sinAsignar, 0);
+    return { ingresos, gastos, neto: ingresos - gastos, margen: ingresos ? (ingresos - gastos) / ingresos : 0, porCliente, liq, porCategoria, sinAsignar };
+  }, [data]);
+}
+
+/* ---------- Tarjetas ---------- */
+function StatCard({ label, value, sub, icon, tone }) {
+  return (
+    <div className="panel p-4 flex flex-col gap-3 min-w-0">
+      <div className="flex items-center justify-between">
+        <span className="eyebrow">{label}</span>
+        <span style={{ color: tone || "var(--muted)" }}><Icon name={icon} /></span>
+      </div>
+      <div className="num text-[22px] sm:text-2xl font-medium truncate" style={{ color: tone || "var(--fg)" }}>{value}</div>
+      {sub && <div className="text-xs" style={{ color: "var(--muted)" }}>{sub}</div>}
+    </div>
+  );
+}
+
+function PartnerCard({ socio, l, ingresos }) {
+  const share = ingresos ? l.bruto / ingresos : 0;
+  return (
+    <div className="panel p-4 flex flex-col gap-3 min-w-0" style={{ borderTop: `2px solid ${socio.color}` }}>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 font-semibold"><span className="dot" style={{ background: socio.color }} />{socio.name}</span>
+        <span className="chip chip-muted num">{(share * 100).toFixed(1)}% del total</span>
+      </div>
+      <div>
+        <div className="eyebrow mb-1">Ganancia neta</div>
+        <div className="num text-2xl font-medium">{money(l.ganancia)}</div>
+      </div>
+      <div className="flex flex-col gap-1 text-xs num" style={{ color: "var(--muted)" }}>
+        <span>Bruto {money(l.bruto)} <span style={{ color: "var(--bad)" }}>− {money(l.asignado)} gastos</span></span>
+        {l.reintegro > 0 && <span>A cobrar con reintegro <span style={{ color: "var(--good)" }}>{money(l.neto)}</span></span>}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Clientes ---------- */
+function ClientsTab({ data, setData }) {
+  const [confirmId, setConfirmId] = useState(null);
+  const upd = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
+  const add = () => {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    setData((d) => ({ ...d, clients: [...d.clients, { id: uid(), cliente: "Nuevo cliente", servicio: "Manejo de redes", cuenta: "@", precio: 0, contacto: "", frecuencia: "1 gr/mes", contenido: "", feeAct: ym, manu: 34, elias: 33, nico: 33 }] }));
+  };
+  const del = (id) => { setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) })); setConfirmId(null); };
+  const total = data.clients.reduce((s, c) => s + (+c.precio || 0), 0);
+
+  return (
+    <div className="panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+        <div>
+          <h2 className="display text-lg font-bold">Cartera de clientes</h2>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Hacé clic en cualquier celda para editarla. Los porcentajes de reparto tienen que sumar 100%.</p>
+        </div>
+        <button className="btn btn-accent" onClick={add}><Icon name="Plus" />Agregar cliente</button>
+      </div>
+      <div className="scroll-x">
+        <table className="grid" style={{ minWidth: 1180 }}>
+          <thead>
+            <tr>
+              <th style={{ minWidth: 130 }}>Cliente</th>
+              <th style={{ minWidth: 140 }}>Servicio</th>
+              <th style={{ minWidth: 170 }}>Cuenta</th>
+              <th style={{ minWidth: 120, textAlign: "right" }}>Fee $</th>
+              <th style={{ minWidth: 130 }}>Contacto</th>
+              <th style={{ minWidth: 90 }}>Grabación</th>
+              <th style={{ minWidth: 170 }}>Contenido / mes</th>
+              <th style={{ minWidth: 150 }}>Fee actualizado</th>
+              <th style={{ textAlign: "center" }}><span style={{ color: "var(--manu)" }}>Manu</span> / <span style={{ color: "var(--elias)" }}>Elias</span> / <span style={{ color: "var(--nico)" }}>Nico</span></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.clients.map((c) => {
+              const sum = (+c.manu || 0) + (+c.elias || 0) + (+c.nico || 0);
+              const age = monthsSince(c.feeAct);
+              return (
+                <tr key={c.id}>
+                  <td><input id={`c-${c.id}-cliente`} className="cell font-semibold" value={c.cliente} onChange={(e) => upd(c.id, "cliente", e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-servicio`} className="cell" value={c.servicio} onChange={(e) => upd(c.id, "servicio", e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-cuenta`} className="cell" style={{ color: "var(--muted)" }} value={c.cuenta} onChange={(e) => upd(c.id, "cuenta", e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-precio`} className="cell num" type="number" min="0" step="10000" value={c.precio} onChange={(e) => upd(c.id, "precio", e.target.value === "" ? "" : +e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-contacto`} className="cell" placeholder="Nombre o teléfono" value={c.contacto} onChange={(e) => upd(c.id, "contacto", e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-frecuencia`} className="cell" value={c.frecuencia} onChange={(e) => upd(c.id, "frecuencia", e.target.value)} /></td>
+                  <td><input id={`c-${c.id}-contenido`} className="cell" value={c.contenido} onChange={(e) => upd(c.id, "contenido", e.target.value)} /></td>
+                  <td>
+                    <div className="flex flex-col gap-1">
+                      <input id={`c-${c.id}-feeAct`} className="cell" type="month" value={c.feeAct} onChange={(e) => upd(c.id, "feeAct", e.target.value)} />
+                      {age !== null && age >= 6 && <span className="chip chip-warn self-start ml-2"><Icon name="CalendarClock" size={12} />Sin ajuste hace {age} meses</span>}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex items-center justify-center gap-1">
+                      {SOCIOS.map((s) => (
+                        <input key={s.key} id={`c-${c.id}-${s.key}`} aria-label={`% ${s.name}`} className="cell num pct" type="number" min="0" max="100" value={c[s.key]} style={{ color: s.color }} onChange={(e) => upd(c.id, s.key, e.target.value === "" ? "" : +e.target.value)} />
+                      ))}
+                    </div>
+                    <div className="flex justify-center mt-1">
+                      {sum === 100 ? <span className="chip chip-good"><Icon name="Check" size={12} />100%</span> : <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />Suma {sum}%</span>}
+                    </div>
+                  </td>
+                  <td>
+                    {confirmId === c.id ? (
+                      <div className="flex items-center gap-1">
+                        <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => del(c.id)}>Borrar</button>
+                        <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
+                      </div>
+                    ) : (
+                      <button className="icon-btn" aria-label={`Eliminar ${c.cliente}`} onClick={() => setConfirmId(c.id)}><Icon name="Trash2" size={15} /></button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3}><span className="eyebrow">Subtotal ingresos · {data.clients.length} clientes</span></td>
+              <td className="num" style={{ textAlign: "right", color: "var(--accent)" }}>{money(total)}</td>
+              <td colSpan={6}></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Gastos ---------- */
+function ExpensesTab({ data, setData, f }) {
+  const [confirmId, setConfirmId] = useState(null);
+  const upd = (id, field, val) => setData((d) => ({ ...d, expenses: d.expenses.map((x) => (x.id === id ? { ...x, [field]: val } : x)) }));
+  const add = (categoria) => setData((d) => ({ ...d, expenses: [...d.expenses, { id: uid(), concepto: categoria === "Plataforma" ? "Nueva plataforma" : categoria === "Editor" ? "Editor" : "Community Manager", categoria, pagadoPor: categoria === "Plataforma" ? "Manu" : "Agencia", monto: 0, nota: "" }] }));
+  const del = (id) => { setData((d) => ({ ...d, expenses: d.expenses.filter((x) => x.id !== id) })); setConfirmId(null); };
+
+  const groups = [
+    { title: "Plataformas", cat: ["Plataforma"], hint: "Suscripciones y herramientas. Indicá qué socio la paga para reintegrársela en la liquidación.", addCat: "Plataforma" },
+    { title: "Editores y Community Managers", cat: ["Editor", "CM"], hint: "Pagos a equipo externo.", addCat: "Editor" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {f.porCategoria.map(({ cat, total }) => (
+          <div key={cat} className="panel p-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="eyebrow">{cat === "CM" ? "Community Manager" : cat === "Editor" ? "Editores" : "Plataformas"}</div>
+              <div className="num text-lg mt-1">{money(total)}</div>
+            </div>
+            <span className="chip chip-muted num">{f.gastos ? ((total / f.gastos) * 100).toFixed(0) : 0}%</span>
+          </div>
+        ))}
+      </div>
+
+      {groups.map((g) => {
+        const rows = data.expenses.filter((e) => g.cat.includes(e.categoria));
+        const sub = rows.reduce((s, e) => s + (+e.monto || 0), 0);
+        return (
+          <div key={g.title} className="panel">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+              <div>
+                <h2 className="display text-lg font-bold">{g.title}</h2>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{g.hint}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {g.addCat === "Editor" ? (
+                  <>
+                    <button className="btn" onClick={() => add("Editor")}><Icon name="Plus" />Editor</button>
+                    <button className="btn" onClick={() => add("CM")}><Icon name="Plus" />CM</button>
+                  </>
+                ) : (
+                  <button className="btn" onClick={() => add("Plataforma")}><Icon name="Plus" />Agregar plataforma</button>
+                )}
+              </div>
+            </div>
+            <div className="scroll-x">
+              <table className="grid" style={{ minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 200 }}>Concepto</th>
+                    <th style={{ minWidth: 120 }}>Tipo</th>
+                    <th style={{ minWidth: 130 }}>Pagado por</th>
+                    <th style={{ minWidth: 130, textAlign: "right" }}>Monto mensual</th>
+                    <th style={{ minWidth: 160 }}>Nota</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr><td colSpan={6} className="text-center py-6" style={{ color: "var(--faint)" }}>Todavía no hay gastos en esta sección.</td></tr>
+                  )}
+                  {rows.map((e) => {
+                    const socio = SOCIOS.find((s) => s.name === e.pagadoPor);
+                    return (
+                      <tr key={e.id}>
+                        <td><input id={`e-${e.id}-concepto`} className="cell font-semibold" value={e.concepto} onChange={(ev) => upd(e.id, "concepto", ev.target.value)} /></td>
+                        <td>
+                          <select id={`e-${e.id}-cat`} className="cell" value={e.categoria} onChange={(ev) => upd(e.id, "categoria", ev.target.value)}>
+                            {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
+                          </select>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <span className="dot" style={{ background: socio ? socio.color : "var(--faint)" }} />
+                            <select id={`e-${e.id}-pago`} className="cell" value={e.pagadoPor} onChange={(ev) => upd(e.id, "pagadoPor", ev.target.value)}>
+                              {PAGADORES.map((p) => <option key={p}>{p}</option>)}
+                            </select>
+                          </div>
+                        </td>
+                        <td><input id={`e-${e.id}-monto`} className="cell num" type="number" min="0" step="1000" value={e.monto} onChange={(ev) => upd(e.id, "monto", ev.target.value === "" ? "" : +ev.target.value)} /></td>
+                        <td><input id={`e-${e.id}-nota`} className="cell" style={{ color: "var(--muted)" }} value={e.nota} placeholder="—" onChange={(ev) => upd(e.id, "nota", ev.target.value)} /></td>
+                        <td>
+                          {confirmId === e.id ? (
+                            <div className="flex items-center gap-1">
+                              <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => del(e.id)}>Borrar</button>
+                              <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
+                            </div>
+                          ) : (
+                            <button className="icon-btn" aria-label={`Eliminar ${e.concepto}`} onClick={() => setConfirmId(e.id)}><Icon name="Trash2" size={15} /></button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3}><span className="eyebrow">Subtotal</span></td>
+                    <td className="num" style={{ textAlign: "right", color: "var(--bad)" }}>{money(sub)}</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Liquidación ---------- */
+function SettlementTab({ data, setData, f }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="panel">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <h2 className="display text-lg font-bold">Lo que genera cada socio por cliente</h2>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Fee del cliente × porcentaje de cada socio.</p>
+        </div>
+        <div className="scroll-x">
+          <table className="grid" style={{ minWidth: 820 }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: 150 }}>Cliente</th>
+                <th style={{ textAlign: "right" }}>Fee</th>
+                {SOCIOS.map((s) => <th key={s.key} style={{ textAlign: "right", color: s.color }}>{s.name}</th>)}
+                <th style={{ minWidth: 180 }}>Reparto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.porCliente.map((r) => (
+                <tr key={r.id}>
+                  <td className="font-semibold py-3">
+                    {r.cliente}
+                    {Math.abs(r.sinAsignar) > 0.5 && <span className="chip chip-bad ml-2">{r.sinAsignar > 0 ? "Falta asignar" : "Excede"} {money(Math.abs(r.sinAsignar))}</span>}
+                  </td>
+                  <td className="num" style={{ textAlign: "right", color: "var(--muted)" }}>{money(r.precio)}</td>
+                  {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right" }}>{money(r[s.key])}</td>)}
+                  <td>
+                    <div className="bar">
+                      {SOCIOS.map((s) => <span key={s.key} style={{ width: `${r.precio ? Math.max(0, (r[s.key] / r.precio) * 100) : 0}%`, background: s.color }} />)}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td><span className="eyebrow">Bruto por socio</span></td>
+                <td className="num" style={{ textAlign: "right", color: "var(--accent)" }}>{money(f.ingresos)}</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right", color: s.color }}>{money(f.liq[s.key].bruto)}</td>)}
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <div>
+            <h2 className="display text-lg font-bold">Ajuste por gastos y neto a cobrar</h2>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Los gastos totales se reparten entre los socios y a quien pagó una plataforma de su bolsillo se le reintegra.</p>
+          </div>
+          <div className="flex flex-col gap-1 items-start">
+            <span className="eyebrow">Criterio de reparto de gastos</span>
+            <div className="seg" role="group">
+              <button aria-pressed={data.reparto === "proporcional"} onClick={() => setData((d) => ({ ...d, reparto: "proporcional" }))}>Según participación</button>
+              <button aria-pressed={data.reparto === "iguales"} onClick={() => setData((d) => ({ ...d, reparto: "iguales" }))}>Partes iguales</button>
+            </div>
+          </div>
+        </div>
+        <div className="scroll-x">
+          <table className="grid" style={{ minWidth: 640 }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: 220 }}>Concepto</th>
+                {SOCIOS.map((s) => <th key={s.key} style={{ textAlign: "right", color: s.color }}>{s.name}</th>)}
+                <th style={{ textAlign: "right" }}>Agencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-3">Ingreso bruto</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right" }}>{money(f.liq[s.key].bruto)}</td>)}
+                <td className="num" style={{ textAlign: "right", color: "var(--muted)" }}>{money(f.ingresos)}</td>
+              </tr>
+              <tr>
+                <td className="py-3">Peso en gastos</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right", color: "var(--muted)" }}>{(f.liq[s.key].peso * 100).toFixed(1)}%</td>)}
+                <td className="num" style={{ textAlign: "right", color: "var(--muted)" }}>100%</td>
+              </tr>
+              <tr>
+                <td className="py-3">Gastos asignados</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right", color: "var(--bad)" }}>− {money(f.liq[s.key].asignado)}</td>)}
+                <td className="num" style={{ textAlign: "right", color: "var(--bad)" }}>− {money(f.gastos)}</td>
+              </tr>
+              <tr>
+                <td className="py-3 font-semibold">Ganancia neta</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num font-semibold" style={{ textAlign: "right", color: s.color }}>{money(f.liq[s.key].ganancia)}</td>)}
+                <td className="num font-semibold" style={{ textAlign: "right", color: "var(--accent)" }}>{money(f.neto)}</td>
+              </tr>
+              <tr>
+                <td className="py-3">Reintegro por plataformas pagadas</td>
+                {SOCIOS.map((s) => <td key={s.key} className="num" style={{ textAlign: "right", color: f.liq[s.key].reintegro ? "var(--good)" : "var(--faint)" }}>{f.liq[s.key].reintegro ? "+ " + money(f.liq[s.key].reintegro) : "—"}</td>)}
+                <td></td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td><span className="eyebrow" style={{ color: "var(--fg)" }}>A cobrar (ganancia + reintegro)</span></td>
+                {SOCIOS.map((s) => <td key={s.key} className="num text-base" style={{ textAlign: "right", color: s.color }}>{money(f.liq[s.key].neto)}</td>)}
+                <td className="num text-base" style={{ textAlign: "right", color: "var(--muted)" }}>{money(SOCIOS.reduce((t, s) => t + f.liq[s.key].neto, 0))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Sesión y guardado ---------- */
+function EstadoGuardado({ status }) {
+  if (status === "saving") return <span className="chip chip-muted" role="status"><Icon name="Loader2" size={12} className="spin" />Guardando…</span>;
+  if (status === "saved") return <span className="chip chip-good" role="status"><Icon name="Check" size={12} />Guardado</span>;
+  if (status === "error") return <span className="chip chip-bad" role="status"><Icon name="CloudOff" size={12} />Sin conexión · reintentando</span>;
+  return null;
+}
+
+function CerrarSesion({ user, flush }) {
+  const form = useRef(null);
+  const [saliendo, setSaliendo] = useState(false);
+  const salir = async (e) => {
+    e.preventDefault();
+    setSaliendo(true);
+    try { await flush(); } finally { form.current.submit(); }
+  };
+  return (
+    <form ref={form} method="post" action="/hueveados/logout" onSubmit={salir} className="flex items-center gap-2">
+      {user && <span className="text-xs" style={{ color: "var(--muted)" }}>{user}</span>}
+      <button className="btn" type="submit" disabled={saliendo}><Icon name="LogOut" size={14} />Cerrar sesión</button>
+    </form>
+  );
+}
+
+/* ---------- App ---------- */
+function App() {
+  const { data: cargado, setData, status, user, loadError, reload, flush } = useDatosCompartidos();
+  const data = cargado || VACIO;
+  const [tab, setTab] = useState(() => { const h = location.hash.slice(1); return ["clientes", "gastos", "liquidacion"].includes(h) ? h : "clientes"; });
+  const f = useFinanzas(data);
+
+  const now = new Date();
+  const periodo = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
+  const tabs = [
+    { id: "clientes", label: "Clientes", icon: "Users" },
+    { id: "gastos", label: "Gastos", icon: "Receipt" },
+    { id: "liquidacion", label: "Liquidación", icon: "PieChart" },
+  ];
+  const pctIssues = data.clients.filter((c) => (+c.manu || 0) + (+c.elias || 0) + (+c.nico || 0) !== 100).length;
+
+  return (
+    <div className="wrap flex flex-col gap-5">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="eyebrow mb-1">Liquidación mensual · {periodo}</div>
+          <h1 className="display text-3xl sm:text-4xl font-bold">Finanzas de la agencia</h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {pctIssues > 0 && <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />{pctIssues} cliente{pctIssues > 1 ? "s" : ""} con reparto ≠ 100%</span>}
+          <EstadoGuardado status={status} />
+          <CerrarSesion user={user} flush={flush} />
+        </div>
+      </header>
+
+      {!cargado ? (
+        <div className="panel p-6 flex items-center gap-3" style={{ color: "var(--muted)" }}>
+          {loadError ? (
+            <>No se pudieron cargar los datos.<button className="btn" onClick={reload}><Icon name="RotateCcw" size={14} />Reintentar</button></>
+          ) : (
+            <><Icon name="Loader2" className="spin" />Cargando datos…</>
+          )}
+        </div>
+      ) : (
+        <>
+          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <StatCard label="Facturación total" value={money(f.ingresos)} sub={`${data.clients.length} clientes activos`} icon="TrendingUp" tone="var(--accent)" />
+            <StatCard label="Gastos totales" value={money(f.gastos)} sub={`${data.expenses.length} conceptos registrados`} icon="Receipt" />
+            <StatCard label="Margen neto" value={money(f.neto)} sub={`${(f.margen * 100).toFixed(1)}% de la facturación`} icon="Wallet" tone={f.neto >= 0 ? "var(--good)" : "var(--bad)"} />
+          </section>
+          <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {SOCIOS.map((s) => <PartnerCard key={s.key} socio={s} l={f.liq[s.key]} ingresos={f.ingresos} />)}
+          </section>
+
+          <nav className="flex gap-1 overflow-x-auto" role="tablist">
+            {tabs.map((t) => (
+              <button key={t.id} role="tab" className="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
+                <Icon name={t.icon} />{t.label}
+              </button>
+            ))}
+          </nav>
+
+          {tab === "clientes" && <ClientsTab data={data} setData={setData} />}
+          {tab === "gastos" && <ExpensesTab data={data} setData={setData} f={f} />}
+          {tab === "liquidacion" && <SettlementTab data={data} setData={setData} f={f} />}
+
+          <p className="text-xs" style={{ color: "var(--faint)" }}>Los cambios se guardan solos y los ven Manu, Elias y Nico.</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

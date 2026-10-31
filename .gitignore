@@ -4,3 +4,5 @@ dist/
 dist-ssr/
 .DS_Store
 *.local
+# Dashboard original con datos de clientes (el backoffice vive en hueveados/)
+/dashboard.html

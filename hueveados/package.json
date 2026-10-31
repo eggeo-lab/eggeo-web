@@ -1,0 +1,21 @@
+{
+  "name": "eggeo-hueveados",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "hash": "node scripts/hash-password.mjs",
+    "db:schema": "wrangler d1 execute eggeo-hueveados --remote --file=schema.sql",
+    "db:seed": "node scripts/build-seed.mjs && wrangler d1 execute eggeo-hueveados --remote --file=seed.sql",
+    "db:schema:local": "wrangler d1 execute eggeo-hueveados --local --file=schema.sql",
+    "db:seed:local": "node scripts/build-seed.mjs && wrangler d1 execute eggeo-hueveados --local --file=seed.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.156.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261023.1": true
+  }
+}
