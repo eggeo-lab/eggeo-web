@@ -2,12 +2,15 @@
 // Cloudflare manda a este Worker solo /hueveados*; el resto del sitio sigue saliendo de GitHub Pages.
 // Nada de /hueveados existe como archivo estático: sin sesión, la API responde 401 y todo lo
 // demás redirige al login.
-import DASHBOARD from "./dashboard.html";
+import DASHBOARD_TEMPLATE from "./dashboard.html";
+import { THEME_HEAD } from "./theme.js";
+import { LOGO_SVG } from "./logo.js";
 import { loginPage } from "./login.js";
 import { verifyLogin, createSession, clearSessionCookie, getSession, deleteSession } from "./auth.js";
 import { readState, parseChanges, applyChanges, InvalidChanges } from "./data.js";
 import { listCredentials, saveCredential, revealPassword, InvalidRequest, MissingKey, NotFound } from "./vault.js";
 
+const DASHBOARD = DASHBOARD_TEMPLATE.replace("<!--THEME-->", THEME_HEAD).replace("<!--LOGO-->", LOGO_SVG);
 const BASE = "/hueveados";
 const CANONICAL_HOST = "www.eggeo.com.ar";
 const MAX_BODY = 256 * 1024;
