@@ -14,6 +14,7 @@
   --accent:#f2b84b; --accent-ink:#1a1305;
   --manu:#6cb8ff; --elias:#b79cff; --nico:#ff8f7a;
   --good:#5fd4a0; --warn:#f2b84b; --bad:#ff6b6b; --sub:#5cc8d6;
+  --chart:#bb831c; /* barras de Stats: el azafrán del acento llevado a la banda de luminosidad de gráficos en oscuro */
   --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body:"Manrope", "Segoe UI", system-ui, sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -85,6 +86,34 @@ input[type=month].cell::-webkit-calendar-picker-indicator{filter:invert(.7);marg
 .mes-nombre{display:inline-block;min-width:170px;text-align:center;font-size:18px;font-weight:700}
 .mes-nombre::first-letter{text-transform:uppercase}
 .dot{width:8px;height:8px;border-radius:99px;display:inline-block;flex:none}
+.red-chip{font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--faint);cursor:pointer}
+.red-chip:hover{border-color:var(--faint);color:var(--muted)}
+.red-chip.on{background:rgba(92,200,214,.14);border-color:transparent;color:var(--sub)}
+.red-chip:focus-visible,.acc-head:focus-visible,.bar-hit:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* Cuentas: un desplegable por cliente */
+.acc-head{width:100%;display:flex;align-items:center;gap:10px;padding:14px 16px;background:none;border:none;color:var(--fg);cursor:pointer;text-align:left;border-radius:14px}
+.acc-head:hover{background:#171d29}
+.acc-chev{transition:transform .15s;color:var(--muted)}
+.acc-head[aria-expanded=true] .acc-chev{transform:rotate(90deg)}
+.cuenta{background:var(--bg);border:1px solid var(--line-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.campo{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.campo .cell{border-color:var(--line)}
+.secreto{font-family:var(--f-mono);letter-spacing:.08em}
+.cuenta .icon-btn{color:var(--muted)}
+.cuenta .icon-btn:hover{color:var(--fg);background:var(--raised)}
+.mes-sel .icon-btn:disabled{opacity:.35;cursor:not-allowed;background:none}
+/* Stats */
+.chart{position:relative}
+.chart svg{display:block;width:100%;overflow:visible}
+.chart text{font-family:var(--f-body);font-size:11px;fill:var(--muted)}
+.chart .tick-y{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.chart .valor{fill:var(--fg);font-weight:600}
+.bar-mark{fill:var(--chart);transition:fill .1s}
+.bar-hit{fill:transparent;cursor:default;outline:none}
+.bar-g.activa .bar-mark{fill:#d39a2e}
+.chart-tip{position:absolute;top:0;pointer-events:none;background:var(--raised);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.35);transform:translateX(-50%);z-index:2}
+.chart-tip .fila{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.chart-tip .key{width:10px;height:2px;border-radius:2px;display:inline-block}
 .seg{display:inline-flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
 .seg button{border:none;background:transparent;color:var(--muted);padding:6px 12px;border-radius:7px;font-weight:600;font-size:12px;cursor:pointer}
 .seg button[aria-pressed=true]{background:var(--raised);color:var(--fg)}
@@ -129,9 +158,9 @@ const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov"
 // altas y bajas. Así nunca se pisa lo que otro socio agregó o editó en otros registros; si dos
 // editan el mismo campo, gana el último en guardar.
 const API = "/hueveados/api";
-const COLECCIONES = ["clients", "expenses"];
+const COLECCIONES = ["clients", "expenses", "payments"];
 const AJUSTES = ["reparto"];
-const VACIO = { clients: [], expenses: [], reparto: "proporcional" };
+const VACIO = { clients: [], expenses: [], payments: [], reparto: "proporcional" };
 const SAVE_DELAY = 800;
 const POLL_MS = 20000;
 const RETRY_MS = 5000;
@@ -140,7 +169,11 @@ class SesionVencida extends Error {}
 async function api(path, options) {
   const res = await fetch(API + path, { credentials: "same-origin", cache: "no-store", ...options });
   if (res.status === 401) { location.href = "/hueveados/login"; throw new SesionVencida(); }
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let mensaje = `HTTP ${res.status}`;
+    try { mensaje = (await res.json()).error || mensaje; } catch {}
+    throw new Error(mensaje);
+  }
   return res.json();
 }
 
@@ -394,13 +427,34 @@ function MesSelector({ mes, setMes }) {
 }
 
 /* ---------- Clientes ---------- */
-const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 170, 210, 50];
+const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 170, 210, 170, 50];
+const MESES_SIN_AJUSTE = 3; // desde cuántos meses sin actualizar el fee aparece el aviso
+
+// Redes que se pueden manejar por cliente (también arman la pestaña Cuentas).
+const REDES = [
+  { key: "instagram", label: "Instagram", corto: "IG" },
+  { key: "facebook", label: "Facebook", corto: "FB" },
+  { key: "tiktok", label: "TikTok", corto: "TT" },
+  { key: "googleAds", label: "Google Ads", corto: "Ads" },
+];
+
+function RedesToggle({ cliente, onToggle }) {
+  return (
+    <div className="flex flex-wrap gap-1" role="group" aria-label={`Redes de ${cliente.cliente}`}>
+      {REDES.map((r) => (
+        <button key={r.key} type="button" className={`red-chip${cliente[r.key] ? " on" : ""}`} aria-pressed={!!cliente[r.key]} title={r.label} onClick={() => onToggle(r.key, !cliente[r.key])}>
+          {r.corto}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function ClientsTab({ data, setData }) {
   const [confirmId, setConfirmId] = useState(null);
   const upd = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
   const add = () => {
-    setData((d) => ({ ...d, clients: [...d.clients, { id: uid(), cliente: "Nuevo cliente", servicio: "Manejo de redes", cuenta: "@", precio: 0, contacto: "", frecuencia: "1 gr/mes", contenido: "", feeAct: mesActual(), manu: 34, elias: 33, nico: 33 }] }));
+    setData((d) => ({ ...d, clients: [...d.clients, { id: uid(), cliente: "Nuevo cliente", servicio: "Manejo de redes", cuenta: "@", precio: 0, contacto: "", frecuencia: "1 gr/mes", contenido: "", feeAct: mesActual(), manu: 34, elias: 33, nico: 33, modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false }] }));
   };
   const del = (id) => { setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) })); setConfirmId(null); };
   const total = suma(data.clients, (c) => c.precio);
@@ -428,6 +482,7 @@ function ClientsTab({ data, setData }) {
             <th>Contenido / mes</th>
             <th>Fee actualizado</th>
             <th className="c"><span style={{ color: "var(--manu)" }}>Manu</span> / <span style={{ color: "var(--elias)" }}>Elias</span> / <span style={{ color: "var(--nico)" }}>Nico</span></th>
+            <th>Redes</th>
             <th><span className="sr-only">Acciones</span></th>
           </tr>
         </thead>
@@ -447,7 +502,7 @@ function ClientsTab({ data, setData }) {
                 <td>
                   <div className="flex flex-col gap-1 min-w-0">
                     <input id={`c-${c.id}-feeAct`} className="cell" type="month" value={c.feeAct} onChange={(e) => upd(c.id, "feeAct", e.target.value)} />
-                    {age !== null && age >= 6 && <span className="chip chip-warn self-start max-w-full trunc"><Icon name="CalendarClock" size={12} />Sin ajuste hace {age} meses</span>}
+                    {age !== null && age >= MESES_SIN_AJUSTE && <span className="chip chip-warn self-start max-w-full trunc"><Icon name="CalendarClock" size={12} />Sin ajuste hace {age} meses</span>}
                   </div>
                 </td>
                 <td className="c">
@@ -460,6 +515,7 @@ function ClientsTab({ data, setData }) {
                     {sum === 100 ? <span className="chip chip-good"><Icon name="Check" size={12} />100%</span> : <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />Suma {sum}%</span>}
                   </div>
                 </td>
+                <td><RedesToggle cliente={c} onToggle={(red, v) => upd(c.id, red, v)} /></td>
                 <td className="c">
                   {confirmId === c.id ? (
                     <div className="flex flex-col items-center gap-1">
@@ -478,7 +534,7 @@ function ClientsTab({ data, setData }) {
           <tr>
             <td colSpan={3}><span className="eyebrow">Subtotal ingresos · {data.clients.length} clientes</span></td>
             <td className="num r" style={{ color: "var(--accent)" }}>{money(total)}</td>
-            <td colSpan={6}></td>
+            <td colSpan={7}></td>
           </tr>
         </tfoot>
       </Tabla>
@@ -801,6 +857,529 @@ function SettlementTab({ data, setData, f, mes }) {
   );
 }
 
+/* ---------- Pagos ---------- */
+// Cada pago es un registro "<cliente>_<mes de servicio>". A mes corriente, en noviembre se cobra
+// noviembre; a mes vencido, en noviembre se cobra octubre.
+const COLS_PAGOS = [190, 160, 120, 140, 190, 160, 150];
+const hoyISO = () => { const d = new Date(); return `${aMes(d)}-${String(d.getDate()).padStart(2, "0")}`; };
+const mesServicio = (c, mesCobro) => (c.modalidad === "vencido" ? sumarMeses(mesCobro, -1) : mesCobro);
+const idPago = (clienteId, mes) => `${clienteId}_${mes}`;
+
+function EstadoPago({ pago, precio, mes }) {
+  if (pago) return <span className="chip chip-good"><Icon name="Check" size={12} />Pagado{pago.marcadoPor ? ` · ${pago.marcadoPor}` : ""}</span>;
+  if (!(+precio > 0)) return <span className="chip chip-muted">Sin fee</span>;
+  const actual = mesActual();
+  if (mes < actual) return <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />Atrasado</span>;
+  if (mes === actual) return <span className="chip chip-warn"><Icon name="Clock" size={12} />Pendiente</span>;
+  return <span className="chip chip-muted"><Icon name="CalendarClock" size={12} />Próximo</span>;
+}
+
+function PagosTab({ data, setData, mes, user }) {
+  const [confirmId, setConfirmId] = useState(null);
+  const pagos = useMemo(() => new Map(data.payments.map((p) => [p.id, p])), [data.payments]);
+  const filas = data.clients.map((c) => {
+    const servicio = mesServicio(c, mes);
+    return { c, servicio, pago: pagos.get(idPago(c.id, servicio)) };
+  });
+  const pagados = filas.filter((x) => x.pago);
+  const pendientes = filas.filter((x) => !x.pago && +x.c.precio > 0);
+  const cobrables = filas.filter((x) => x.pago || +x.c.precio > 0).length;
+
+  const updCliente = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
+  const updPago = (id, field, val) => setData((d) => ({ ...d, payments: d.payments.map((p) => (p.id === id ? { ...p, [field]: val } : p)) }));
+  const marcar = (c, servicio) => {
+    const id = idPago(c.id, servicio);
+    const pago = { id, cliente: c.id, nombre: c.cliente, mes: servicio, monto: +c.precio || 0, fecha: hoyISO(), manu: +c.manu || 0, elias: +c.elias || 0, nico: +c.nico || 0, marcadoPor: user || "" };
+    setData((d) => ({ ...d, payments: [...d.payments.filter((p) => p.id !== id), pago] }));
+  };
+  const deshacer = (id) => { setData((d) => ({ ...d, payments: d.payments.filter((p) => p.id !== id) })); setConfirmId(null); };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <StatCard label={`Cobrado · ${fmtMonth(mes)}`} value={money(suma(pagados.map((x) => x.pago)))} sub={`${pagados.length} de ${cobrables} clientes`} icon="CircleDollarSign" tone="var(--good)" />
+        <StatCard label="Por cobrar" value={money(suma(pendientes, (x) => x.c.precio))} sub={`${pendientes.length} pago${pendientes.length === 1 ? "" : "s"} sin marcar`} icon="Clock" tone={pendientes.length ? "var(--warn)" : undefined} />
+        <StatCard label="Ticket promedio" value={money(pagados.length ? suma(pagados.map((x) => x.pago)) / pagados.length : 0)} sub="Lo cobrado ÷ clientes que pagaron" icon="Ticket" />
+      </div>
+
+      <div className="panel">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <h2 className="display text-lg font-bold">Pagos de {fmtMesLargo(mes)}</h2>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            Mes corriente: en {fmtMesLargo(mes)} se cobra {fmtMesLargo(mes)}. Mes vencido: se cobra {fmtMesLargo(sumarMeses(mes, -1))}. Para cargar pagos viejos, andá al mes con las flechas de arriba.
+          </p>
+        </div>
+        <Tabla cols={COLS_PAGOS}>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Cobro</th>
+              <th>Servicio de</th>
+              <th className="r">Monto</th>
+              <th>Estado</th>
+              <th>Fecha de pago</th>
+              <th className="r"><span className="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.length === 0 && <tr><td colSpan={7} className="text-center py-6" style={{ color: "var(--faint)" }}>Todavía no hay clientes.</td></tr>}
+            {filas.map(({ c, servicio, pago }) => (
+              <tr key={c.id}>
+                <td className="font-semibold"><div className="trunc px-2" title={c.cliente}>{c.cliente}</div></td>
+                <td>
+                  <select id={`p-${c.id}-modalidad`} className="cell" value={c.modalidad === "vencido" ? "vencido" : "corriente"} onChange={(e) => updCliente(c.id, "modalidad", e.target.value)} aria-label={`Modalidad de cobro de ${c.cliente}`}>
+                    <option value="corriente">Mes corriente</option>
+                    <option value="vencido">Mes vencido</option>
+                  </select>
+                </td>
+                <td style={{ color: "var(--muted)" }}>{fmtMonth(servicio)}</td>
+                <td>
+                  {pago
+                    ? <Celda id={`p-${pago.id}-monto`} className="num" type="number" min="0" step="10000" value={pago.monto} onChange={(e) => updPago(pago.id, "monto", e.target.value === "" ? "" : +e.target.value)} aria-label={`Monto cobrado a ${c.cliente}`} />
+                    : <div className="num r px-2" style={{ color: "var(--muted)" }}>{money(c.precio)}</div>}
+                </td>
+                <td><EstadoPago pago={pago} precio={c.precio} mes={mes} /></td>
+                <td>
+                  {pago
+                    ? <input id={`p-${pago.id}-fecha`} className="cell" type="date" value={pago.fecha || ""} onChange={(e) => updPago(pago.id, "fecha", e.target.value)} aria-label={`Fecha de pago de ${c.cliente}`} />
+                    : <span className="px-2" style={{ color: "var(--faint)" }}>—</span>}
+                </td>
+                <td className="r">
+                  {!pago ? (
+                    <button className="btn" style={{ padding: "6px 10px" }} onClick={() => marcar(c, servicio)}><Icon name="Check" size={14} />Marcar pagado</button>
+                  ) : confirmId === pago.id ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => deshacer(pago.id)}>Deshacer</button>
+                      <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
+                    </div>
+                  ) : (
+                    <button className="chip chip-action" onClick={() => setConfirmId(pago.id)}>Deshacer pago</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3}><span className="eyebrow">Cobrado · {fmtMonth(mes)}</span></td>
+              <td className="num r" style={{ color: "var(--good)" }}>{money(suma(pagados.map((x) => x.pago)))}</td>
+              <td colSpan={3}></td>
+            </tr>
+          </tfoot>
+        </Tabla>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Stats ---------- */
+// Todo sale de los pagos marcados (asignados a su mes de servicio) y de los gastos de cada mes.
+const compacto = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
+const moneyCorto = (n) => `${n < 0 ? "−" : ""}$${compacto.format(Math.abs(n))}`;
+const fmtMomento = (ms) => new Date(ms).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function useStats(data, anio) {
+  return useMemo(() => {
+    const actual = mesActual();
+    return Array.from({ length: 12 }, (_, i) => {
+      const m = `${anio}-${String(i + 1).padStart(2, "0")}`;
+      if (m > actual) return null;
+      const pagos = data.payments.filter((p) => p.mes === m);
+      const gastosMes = data.expenses.filter((e) => aplicaEnMes(e, m));
+      const cobrado = suma(pagos);
+      const gastos = suma(gastosMes);
+      const bruto = { manu: 0, elias: 0, nico: 0 };
+      pagos.forEach((p) => SOCIOS.forEach(({ key }) => { bruto[key] += ((+p.monto || 0) * (+p[key] || 0)) / 100; }));
+      const totalBruto = bruto.manu + bruto.elias + bruto.nico;
+      const socio = {};
+      SOCIOS.forEach(({ key, name }) => {
+        const peso = data.reparto === "iguales" || totalBruto === 0 ? 1 / 3 : bruto[key] / totalBruto;
+        const asignado = gastos * peso;
+        socio[key] = { bruto: bruto[key], asignado, ganancia: bruto[key] - asignado, reintegro: suma(gastosMes.filter((e) => e.pagadoPor === name)) };
+      });
+      return { mes: m, cobrado, gastos, ganancia: cobrado - gastos, pagos: pagos.length, ticket: pagos.length ? cobrado / pagos.length : 0, socio };
+    });
+  }, [data, anio]);
+}
+
+function escalaLinda(min, max, n = 4) {
+  if (min === max) max = min + 1;
+  const paso0 = (max - min) / n;
+  const mag = 10 ** Math.floor(Math.log10(paso0));
+  const paso = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((p) => p >= paso0);
+  const lo = Math.floor(min / paso) * paso;
+  const hi = Math.ceil(max / paso) * paso;
+  const ticks = [];
+  for (let v = lo; v <= hi + paso / 2; v += paso) ticks.push(Math.round(v));
+  return { lo, hi, ticks };
+}
+
+// Columnas de ganancia por mes: una sola serie (sin leyenda, la nombra el título), barras de 24px como
+// máximo con el extremo de dato redondeado, grilla de 1px y tooltip por barra con hover y foco.
+function GananciaChart({ filas, anio }) {
+  const ref = useRef(null);
+  const [ancho, setAncho] = useState(720);
+  const [activa, setActiva] = useState(null);
+  useEffect(() => {
+    const ro = new ResizeObserver(([e]) => setAncho(Math.max(300, Math.round(e.contentRect.width))));
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const alto = 260, m = { t: 24, r: 8, b: 28, l: 60 };
+  const w = ancho - m.l - m.r, h = alto - m.t - m.b;
+  const valores = filas.filter(Boolean).map((f) => f.ganancia);
+  const { lo, hi, ticks } = escalaLinda(Math.min(0, ...valores), Math.max(0, ...valores));
+  const y = (v) => m.t + ((hi - v) / (hi - lo)) * h;
+  const banda = w / 12;
+  const barra = Math.min(24, banda * 0.6);
+  const cx = (i) => m.l + banda * i + banda / 2;
+  const mejor = filas.reduce((b, f, i) => (f && f.ganancia > 0 && (b === null || f.ganancia > filas[b].ganancia) ? i : b), null);
+
+  const forma = (i, v) => {
+    const x0 = cx(i) - barra / 2, x1 = x0 + barra, y0 = y(0), y1 = y(v);
+    const r = Math.min(4, Math.abs(y0 - y1), barra / 2);
+    const s = v >= 0 ? 1 : -1; // el extremo redondeado es el de dato; la base queda recta
+    return `M${x0},${y0} V${y1 + s * r} Q${x0},${y1} ${x0 + r},${y1} H${x1 - r} Q${x1},${y1} ${x1},${y1 + s * r} V${y0} Z`;
+  };
+  const f = activa !== null ? filas[activa] : null;
+
+  return (
+    <div className="chart" ref={ref}>
+      <svg width={ancho} height={alto} role="img" aria-label={`Ganancia de EGGEO por mes en ${anio}. Los valores están en la tabla de abajo.`}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={m.l} x2={ancho - m.r} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--faint)" : "var(--line-soft)"} strokeWidth="1" />
+            <text className="tick-y" x={m.l - 8} y={y(t) + 4} textAnchor="end">{moneyCorto(t)}</text>
+          </g>
+        ))}
+        {MESES.map((nombre, i) => (banda >= 30 || i % 3 === 0) && (
+          <text key={nombre} x={cx(i)} y={alto - 8} textAnchor="middle" style={filas[i] ? undefined : { fill: "var(--faint)" }}>{nombre}</text>
+        ))}
+        {filas.map((fila, i) => fila && (
+          <g key={fila.mes} className={`bar-g${activa === i ? " activa" : ""}`}>
+            {fila.ganancia !== 0 && <path className="bar-mark" d={forma(i, fila.ganancia)} />}
+            {i === mejor && <text className="valor" x={cx(i)} y={y(fila.ganancia) - 6} textAnchor="middle">{moneyCorto(fila.ganancia)}</text>}
+            <rect className="bar-hit" x={m.l + banda * i} y={m.t} width={banda} height={h} tabIndex={0}
+              aria-label={`${fmtMesLargo(fila.mes)}: ganancia ${money(fila.ganancia)}, cobrado ${money(fila.cobrado)}, gastos ${money(fila.gastos)}`}
+              onPointerEnter={() => setActiva(i)} onPointerLeave={() => setActiva(null)} onFocus={() => setActiva(i)} onBlur={() => setActiva(null)} />
+          </g>
+        ))}
+      </svg>
+      {f && (
+        <div className="chart-tip" style={{ left: Math.min(Math.max(cx(activa), 90), ancho - 90) }}>
+          <div className="eyebrow mb-1" style={{ textTransform: "none", letterSpacing: 0 }}>{fmtMesLargo(f.mes)}</div>
+          <div className="fila"><span className="flex items-center gap-2"><span className="key" style={{ background: "var(--chart)" }} /><strong className="num">{money(f.ganancia)}</strong></span><span style={{ color: "var(--muted)" }}>Ganancia</span></div>
+          <div className="fila"><strong className="num" style={{ fontWeight: 500 }}>{money(f.cobrado)}</strong><span style={{ color: "var(--muted)" }}>Cobrado</span></div>
+          <div className="fila"><strong className="num" style={{ fontWeight: 500 }}>{money(f.gastos)}</strong><span style={{ color: "var(--muted)" }}>Gastos</span></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnioSelector({ anio, setAnio, min, max }) {
+  return (
+    <div className="mes-sel" role="group" aria-label="Año">
+      <button className="icon-btn" aria-label="Año anterior" disabled={anio <= min} onClick={() => setAnio(anio - 1)}><Icon name="ChevronLeft" size={18} /></button>
+      <span className="display mes-nombre" style={{ minWidth: 90 }} aria-live="polite">{anio}</span>
+      <button className="icon-btn" aria-label="Año siguiente" disabled={anio >= max} onClick={() => setAnio(anio + 1)}><Icon name="ChevronRight" size={18} /></button>
+    </div>
+  );
+}
+
+const COLS_BALANCE = [150, 150, 150, 150, 90, 150];
+const COLS_SOCIO = [150, 170, 170, 150, 150];
+const signo = (n) => ({ color: n < 0 ? "var(--bad)" : undefined });
+
+function StatsTab({ data, user }) {
+  const anioActual = +mesActual().slice(0, 4);
+  const anios = data.payments.map((p) => +String(p.mes).slice(0, 4)).filter(Boolean);
+  const primerAnio = Math.min(anioActual, ...anios);
+  const [anio, setAnio] = useState(anioActual);
+  const filas = useStats(data, anio);
+  // Las tablas arrancan en el primer mes con pagos o gastos (el gráfico mantiene los 12 meses).
+  const desde = filas.findIndex((x) => x && (x.pagos || x.gastos));
+  const meses = desde === -1 ? [] : filas.slice(desde).filter(Boolean);
+  const tot = meses.reduce((t, x) => ({ cobrado: t.cobrado + x.cobrado, gastos: t.gastos + x.gastos, pagos: t.pagos + x.pagos }), { cobrado: 0, gastos: 0, pagos: 0 });
+  const ganancia = tot.cobrado - tot.gastos;
+  const socio = SOCIOS.find((s) => s.name === user);
+  const mio = socio && meses.reduce((t, x) => {
+    const s = x.socio[socio.key];
+    return { bruto: t.bruto + s.bruto, asignado: t.asignado + s.asignado, ganancia: t.ganancia + s.ganancia, reintegro: t.reintegro + s.reintegro };
+  }, { bruto: 0, asignado: 0, ganancia: 0, reintegro: 0 });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <AnioSelector anio={anio} setAnio={setAnio} min={primerAnio} max={anioActual} />
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Calculado con los pagos marcados en la pestaña Pagos (por mes de servicio) y los gastos de cada mes.</p>
+      </div>
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label={`Cobrado en ${anio}`} value={money(tot.cobrado)} sub={`${tot.pagos} pago${tot.pagos === 1 ? "" : "s"}`} icon="CircleDollarSign" tone="var(--accent)" />
+        <StatCard label={`Gastos en ${anio}`} value={money(tot.gastos)} sub={`${meses.length} mes${meses.length === 1 ? "" : "es"} con movimiento`} icon="Receipt" />
+        <StatCard label={`Ganancia ${anio}`} value={money(ganancia)} sub={tot.cobrado ? `${((ganancia / tot.cobrado) * 100).toFixed(1)}% de lo cobrado` : "Sin pagos marcados"} icon="Wallet" tone={ganancia >= 0 ? "var(--good)" : "var(--bad)"} />
+        <StatCard label="Ticket promedio" value={money(tot.pagos ? tot.cobrado / tot.pagos : 0)} sub={`Promedio por pago en ${anio}`} icon="Ticket" />
+      </section>
+
+      <div className="panel">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <h2 className="display text-lg font-bold">Ganancia de EGGEO mes a mes · {anio}</h2>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Cobrado menos gastos de cada mes. Pasá el mouse o el foco por un mes para ver el detalle.</p>
+        </div>
+        <div className="p-4">
+          {tot.pagos === 0 && <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>Todavía no hay pagos marcados en {anio}: por ahora el gráfico solo muestra los gastos. Marcá los pagos en la pestaña Pagos.</p>}
+          <GananciaChart filas={filas} anio={anio} />
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <h2 className="display text-lg font-bold">Balance {anio}</h2>
+        </div>
+        <Tabla cols={COLS_BALANCE}>
+          <thead>
+            <tr><th>Mes</th><th className="r">Cobrado</th><th className="r">Gastos</th><th className="r">Ganancia</th><th className="r">Pagos</th><th className="r">Ticket promedio</th></tr>
+          </thead>
+          <tbody>
+            {meses.length === 0 && <tr><td colSpan={6} className="text-center py-6" style={{ color: "var(--faint)" }}>No hay pagos ni gastos en {anio}.</td></tr>}
+            {meses.map((x) => (
+              <tr key={x.mes}>
+                <td className="py-3">{fmtMesLargo(x.mes)}</td>
+                <td className="num r">{money(x.cobrado)}</td>
+                <td className="num r" style={{ color: "var(--muted)" }}>{money(x.gastos)}</td>
+                <td className="num r font-semibold" style={signo(x.ganancia)}>{money(x.ganancia)}</td>
+                <td className="num r" style={{ color: "var(--muted)" }}>{x.pagos}</td>
+                <td className="num r">{x.pagos ? money(x.ticket) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td><span className="eyebrow" style={{ color: "var(--fg)" }}>Total {anio}</span></td>
+              <td className="num r" style={{ color: "var(--accent)" }}>{money(tot.cobrado)}</td>
+              <td className="num r">{money(tot.gastos)}</td>
+              <td className="num r" style={signo(ganancia)}>{money(ganancia)}</td>
+              <td className="num r">{tot.pagos}</td>
+              <td className="num r">{tot.pagos ? money(tot.cobrado / tot.pagos) : "—"}</td>
+            </tr>
+          </tfoot>
+        </Tabla>
+      </div>
+
+      {socio && (
+        <div className="panel" style={{ borderTop: `2px solid ${socio.color}` }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+            <div>
+              <h2 className="display text-lg font-bold flex items-center gap-2"><span className="dot" style={{ background: socio.color }} />Tu ganancia · {socio.name}</h2>
+              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Solo vos ves esta sección. Tu parte de cada pago (con el reparto vigente al cobrarlo) menos tu parte de los gastos.</p>
+            </div>
+            <div className="text-right">
+              <div className="eyebrow">Ganaste en {anio}</div>
+              <div className="num text-2xl font-medium" style={signo(mio.ganancia)}>{money(mio.ganancia)}</div>
+            </div>
+          </div>
+          <Tabla cols={COLS_SOCIO}>
+            <thead>
+              <tr><th>Mes</th><th className="r">Tu parte cobrada</th><th className="r">Gastos asignados</th><th className="r">Ganancia neta</th><th className="r">Reintegros</th></tr>
+            </thead>
+            <tbody>
+              {meses.map((x) => {
+                const s = x.socio[socio.key];
+                return (
+                  <tr key={x.mes}>
+                    <td className="py-3">{fmtMesLargo(x.mes)}</td>
+                    <td className="num r">{money(s.bruto)}</td>
+                    <td className="num r" style={{ color: "var(--muted)" }}>− {money(s.asignado)}</td>
+                    <td className="num r font-semibold" style={signo(s.ganancia)}>{money(s.ganancia)}</td>
+                    <td className="num r" style={{ color: s.reintegro ? "var(--good)" : "var(--faint)" }}>{s.reintegro ? `+ ${money(s.reintegro)}` : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td><span className="eyebrow" style={{ color: "var(--fg)" }}>Total {anio}</span></td>
+                <td className="num r">{money(mio.bruto)}</td>
+                <td className="num r">− {money(mio.asignado)}</td>
+                <td className="num r" style={signo(mio.ganancia)}>{money(mio.ganancia)}</td>
+                <td className="num r">{mio.reintegro ? `+ ${money(mio.reintegro)}` : "—"}</td>
+              </tr>
+            </tfoot>
+          </Tabla>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Cuentas ---------- */
+// Usuario y contraseña de cada red de cada cliente. Van por su propia API (/api/cuentas): las
+// contraseñas no viajan con el resto de los datos, se piden al tocar Mostrar o Copiar.
+const apiPost = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+const ACCION_TEXTO = { ver: "vio", copiar: "copió", cambiar: "cambió", borrar: "borró" };
+const OCULTAR_MS = 30000;
+
+function useCuentas() {
+  const [cuentas, setCuentas] = useState(null);
+  const [error, setError] = useState("");
+  const indexar = (lista) => new Map(lista.map((c) => [`${c.cliente}|${c.red}`, c]));
+  const cargar = useCallback(async () => {
+    try { setCuentas(indexar((await api("/cuentas")).cuentas)); setError(""); }
+    catch (e) { if (!(e instanceof SesionVencida)) setError(e.message || "No se pudieron cargar las cuentas."); }
+  }, []);
+  useEffect(() => {
+    cargar();
+    const onVisible = () => { if (!document.hidden) cargar(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [cargar]);
+  const guardar = async (cambio) => setCuentas(indexar((await apiPost("/cuentas/guardar", cambio)).cuentas));
+  const revelar = async (cliente, red, accion) => { const { password } = await apiPost("/cuentas/revelar", { cliente, red, accion }); cargar(); return password; };
+  return { cuentas, error, guardar, revelar };
+}
+
+function CuentaCard({ cliente, red, cuenta, elegida, guardar, revelar }) {
+  const [usuario, setUsuario] = useState(cuenta?.usuario || "");
+  const [nota, setNota] = useState(cuenta?.nota || "");
+  const [visible, setVisible] = useState(null);
+  const [editando, setEditando] = useState(false);
+  const [nueva, setNueva] = useState("");
+  const [confirmBorrar, setConfirmBorrar] = useState(false);
+  const [aviso, setAviso] = useState("");
+  const foco = useRef(null);
+  const tAviso = useRef(null), tOcultar = useRef(null);
+  useEffect(() => { if (foco.current !== "usuario") setUsuario(cuenta?.usuario || ""); }, [cuenta?.usuario]);
+  useEffect(() => { if (foco.current !== "nota") setNota(cuenta?.nota || ""); }, [cuenta?.nota]);
+  useEffect(() => () => { clearTimeout(tAviso.current); clearTimeout(tOcultar.current); }, []);
+
+  const avisar = (msg) => { setAviso(msg); clearTimeout(tAviso.current); tAviso.current = setTimeout(() => setAviso(""), 2500); };
+  const base = { cliente: cliente.id, red: red.key };
+  const intentar = async (fn, ok) => { try { await fn(); if (ok) avisar(ok); } catch (e) { if (!(e instanceof SesionVencida)) avisar(e.message || "No se pudo guardar"); } };
+  const guardarCampo = (campo, valor) => { foco.current = null; if ((cuenta?.[campo] || "") !== valor) intentar(() => guardar({ ...base, [campo]: valor }), "Guardado"); };
+  const mostrar = () => {
+    if (visible !== null) { setVisible(null); return; }
+    intentar(async () => {
+      setVisible(await revelar(cliente.id, red.key, "ver"));
+      clearTimeout(tOcultar.current);
+      tOcultar.current = setTimeout(() => setVisible(null), OCULTAR_MS);
+    });
+  };
+  const copiar = () => intentar(async () => navigator.clipboard.writeText(await revelar(cliente.id, red.key, "copiar")), "Copiada");
+  const guardarPassword = (password) => intentar(async () => {
+    await guardar({ ...base, password });
+    setNueva(""); setEditando(false); setVisible(null); setConfirmBorrar(false);
+  }, password ? "Contraseña guardada" : "Contraseña borrada");
+  const pidePassword = editando || !cuenta?.tienePassword;
+
+  return (
+    <div className="cuenta">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold flex items-center gap-2">{red.label}{!elegida && <span className="chip chip-muted">No elegida</span>}</span>
+        {aviso && <span className="text-xs" role="status" style={{ color: "var(--muted)" }}>{aviso}</span>}
+      </div>
+      <label className="campo"><span>Usuario</span>
+        <Celda value={usuario} placeholder="Usuario o mail" autoComplete="off" spellCheck={false} onFocus={() => { foco.current = "usuario"; }} onChange={(e) => setUsuario(e.target.value)} onBlur={() => guardarCampo("usuario", usuario)} />
+      </label>
+      <div className="campo"><span>Contraseña</span>
+        {pidePassword ? (
+          <div className="flex items-center gap-1 min-w-0">
+            <input className="cell" type="password" autoComplete="new-password" data-lpignore="true" value={nueva} placeholder={cuenta?.tienePassword ? "Nueva contraseña" : "Cargar contraseña"} aria-label={`Contraseña de ${red.label} de ${cliente.cliente}`}
+              onChange={(e) => setNueva(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && nueva) guardarPassword(nueva); }} />
+            <button className="btn" style={{ padding: "6px 10px" }} disabled={!nueva} onClick={() => guardarPassword(nueva)}>Guardar</button>
+            {editando && <button className="icon-btn" aria-label="Cancelar" onClick={() => { setEditando(false); setNueva(""); setConfirmBorrar(false); }}><Icon name="X" size={14} /></button>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="secreto trunc px-2" style={{ flex: 1 }} title={visible ?? undefined}>{visible ?? "••••••••••"}</span>
+            <button className="icon-btn" aria-label={visible !== null ? "Ocultar contraseña" : "Mostrar contraseña"} title={visible !== null ? "Ocultar" : "Mostrar (se oculta sola a los 30 s)"} onClick={mostrar}><Icon name={visible !== null ? "EyeOff" : "Eye"} size={15} /></button>
+            <button className="icon-btn" aria-label="Copiar contraseña" title="Copiar" onClick={copiar}><Icon name="Copy" size={15} /></button>
+            <button className="icon-btn" aria-label="Cambiar contraseña" title="Cambiar" onClick={() => { setEditando(true); setVisible(null); }}><Icon name="Pencil" size={15} /></button>
+          </div>
+        )}
+      </div>
+      {editando && cuenta?.tienePassword && (
+        <div className="flex justify-end">
+          {confirmBorrar
+            ? <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => guardarPassword("")}>Sí, borrar la contraseña</button>
+            : <button className="chip chip-action" onClick={() => setConfirmBorrar(true)}>Borrar contraseña</button>}
+        </div>
+      )}
+      <label className="campo"><span>Nota</span>
+        <Celda value={nota} placeholder="2FA, mail de recuperación…" onFocus={() => { foco.current = "nota"; }} onChange={(e) => setNota(e.target.value)} onBlur={() => guardarCampo("nota", nota)} />
+      </label>
+      {(cuenta?.actualizado || cuenta?.ultimoAcceso) && (
+        <div className="text-xs flex flex-col gap-0.5" style={{ color: "var(--faint)" }}>
+          {cuenta.actualizado && <span>Modificada por {USUARIOS[cuenta.actualizado.por] || cuenta.actualizado.por} · {fmtMomento(cuenta.actualizado.at)}</span>}
+          {cuenta.ultimoAcceso && <span>Último acceso: {USUARIOS[cuenta.ultimoAcceso.por] || cuenta.ultimoAcceso.por} la {ACCION_TEXTO[cuenta.ultimoAcceso.accion] || cuenta.ultimoAcceso.accion} · {fmtMomento(cuenta.ultimoAcceso.at)}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+const USUARIOS = Object.fromEntries(SOCIOS.map((s) => [s.key, s.name]));
+
+function CuentasTab({ data, setData }) {
+  const { cuentas, error, guardar, revelar } = useCuentas();
+  const [abiertos, setAbiertos] = useState(() => new Set());
+  const [buscar, setBuscar] = useState("");
+  const alternar = (id) => setAbiertos((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const updCliente = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
+  const clientes = data.clients.filter((c) => !buscar || String(c.cliente).toLowerCase().includes(buscar.toLowerCase()));
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs" style={{ color: "var(--muted)", maxWidth: 640 }}>
+          Las contraseñas se guardan cifradas y solo se muestran al tocar Mostrar o Copiar. Queda registrado quién las vio, copió o cambió.
+        </p>
+        <input className="cell" style={{ maxWidth: 240, borderColor: "var(--line)" }} type="search" placeholder="Buscar cliente" value={buscar} onChange={(e) => setBuscar(e.target.value)} aria-label="Buscar cliente" />
+      </div>
+      {error && <div className="panel p-4 flex items-center gap-2" role="alert" style={{ color: "var(--bad)" }}><Icon name="AlertTriangle" size={14} />{error}</div>}
+      <div className="panel">
+        {clientes.length === 0 && <p className="p-6 text-center" style={{ color: "var(--faint)" }}>No hay clientes{buscar ? " con ese nombre" : ""}.</p>}
+        {clientes.map((c, i) => {
+          const elegidas = REDES.filter((r) => c[r.key]);
+          const extras = REDES.filter((r) => !c[r.key] && cuentas?.has(`${c.id}|${r.key}`));
+          const conPassword = elegidas.filter((r) => cuentas?.get(`${c.id}|${r.key}`)?.tienePassword).length;
+          const abierto = abiertos.has(c.id);
+          return (
+            <div key={c.id} style={{ borderTop: i ? "1px solid var(--line-soft)" : undefined }}>
+              <button className="acc-head" aria-expanded={abierto} aria-controls={`cuentas-${c.id}`} onClick={() => alternar(c.id)}>
+                <Icon name="ChevronRight" size={16} className="acc-chev" />
+                <span className="font-semibold trunc" style={{ flex: 1 }}>{c.cliente}</span>
+                <span className="hidden sm:flex gap-1">
+                  {elegidas.map((r) => <span key={r.key} className="red-chip on" style={{ cursor: "inherit" }} title={r.label}>{r.corto}</span>)}
+                </span>
+                <span className="chip chip-muted num">{elegidas.length ? `${conPassword}/${elegidas.length}` : "Sin redes"}</span>
+              </button>
+              {abierto && (
+                <div id={`cuentas-${c.id}`} className="px-4 pb-4 flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+                    Redes que manejamos: <RedesToggle cliente={c} onToggle={(red, v) => updCliente(c.id, red, v)} />
+                  </div>
+                  {elegidas.length + extras.length === 0 ? (
+                    <p className="text-xs" style={{ color: "var(--faint)" }}>Elegí arriba qué redes manejamos con este cliente.</p>
+                  ) : !cuentas ? (
+                    <p className="text-xs flex items-center gap-2" style={{ color: "var(--muted)" }}><Icon name="Loader2" size={14} className="spin" />Cargando cuentas…</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[...elegidas, ...extras].map((r) => (
+                        <CuentaCard key={r.key} cliente={c} red={r} elegida={!!c[r.key]} cuenta={cuentas.get(`${c.id}|${r.key}`)} guardar={guardar} revelar={revelar} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Sesión y guardado ---------- */
 function EstadoGuardado({ status }) {
   if (status === "saving") return <span className="chip chip-muted" role="status"><Icon name="Loader2" size={12} className="spin" />Guardando…</span>;
@@ -829,15 +1408,18 @@ function CerrarSesion({ user, flush }) {
 function App() {
   const { data: cargado, setData, status, user, loadError, reload, flush } = useDatosCompartidos();
   const data = cargado || VACIO;
-  const [tab, setTab] = useState(() => { const h = location.hash.slice(1); return ["clientes", "gastos", "liquidacion"].includes(h) ? h : "clientes"; });
-  const [mes, setMes] = useState(mesActual);
-  const f = useFinanzas(data, mes);
-
   const tabs = [
     { id: "clientes", label: "Clientes", icon: "Users" },
     { id: "gastos", label: "Gastos", icon: "Receipt" },
+    { id: "pagos", label: "Pagos", icon: "CircleDollarSign" },
     { id: "liquidacion", label: "Liquidación", icon: "PieChart" },
+    { id: "stats", label: "Stats", icon: "BarChart3" },
+    { id: "cuentas", label: "Cuentas", icon: "KeyRound" },
   ];
+  const [tab, setTabState] = useState(() => { const h = location.hash.slice(1); return tabs.some((t) => t.id === h) ? h : "clientes"; });
+  const setTab = (id) => { setTabState(id); history.replaceState(null, "", `#${id}`); };
+  const [mes, setMes] = useState(mesActual);
+  const f = useFinanzas(data, mes);
   const pctIssues = data.clients.filter((c) => (+c.manu || 0) + (+c.elias || 0) + (+c.nico || 0) !== 100).length;
 
   return (
@@ -880,7 +1462,7 @@ function App() {
 
           <nav className="flex gap-1 overflow-x-auto" role="tablist">
             {tabs.map((t) => (
-              <button key={t.id} role="tab" className="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
+              <button key={t.id} role="tab" className="tab" aria-selected={tab === t.id} onClick={(e) => { setTab(t.id); e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" }); }}>
                 <Icon name={t.icon} />{t.label}
               </button>
             ))}
@@ -888,7 +1470,10 @@ function App() {
 
           {tab === "clientes" && <ClientsTab data={data} setData={setData} />}
           {tab === "gastos" && <ExpensesTab data={data} setData={setData} f={f} mes={mes} />}
+          {tab === "pagos" && <PagosTab data={data} setData={setData} mes={mes} user={user} />}
           {tab === "liquidacion" && <SettlementTab data={data} setData={setData} f={f} mes={mes} />}
+          {tab === "stats" && <StatsTab data={data} user={user} />}
+          {tab === "cuentas" && <CuentasTab data={data} setData={setData} />}
 
           <p className="text-xs" style={{ color: "var(--faint)" }}>Los cambios se guardan solos y los ven Manu, Elias y Nico.</p>
         </>

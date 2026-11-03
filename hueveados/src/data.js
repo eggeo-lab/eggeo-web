@@ -1,4 +1,4 @@
-// Datos del dashboard en D1: un registro por cliente, gasto y ajuste.
+// Datos del dashboard en D1: un registro por cliente, gasto, pago y ajuste.
 //
 // El dashboard manda solo los campos que cambió (upserts) y los registros que borró (deletes).
 // Cada campo se fusiona con json_patch sobre lo que ya hay, así lo que otro socio agregó o
@@ -7,14 +7,23 @@
 const S = "string";
 const N = "number";
 const M = "month"; // "AAAA-MM" o vacío
+const D = "date"; // "AAAA-MM-DD" o vacío
+const B = "boolean";
 const FIELDS = {
-  clients: { cliente: S, servicio: S, cuenta: S, precio: N, contacto: S, frecuencia: S, contenido: S, feeAct: S, manu: N, elias: N, nico: N },
+  clients: {
+    cliente: S, servicio: S, cuenta: S, precio: N, contacto: S, frecuencia: S, contenido: S, feeAct: S, manu: N, elias: N, nico: N,
+    modalidad: ["corriente", "vencido"], tiktok: B, facebook: B, instagram: B, googleAds: B,
+  },
   expenses: { concepto: S, categoria: S, pagadoPor: S, monto: N, nota: S, tipo: ["mensual", "unica"], mes: M, desde: M, hasta: M },
+  // Un pago por cliente y mes de servicio (id "<cliente>_<AAAA-MM>"). Guarda el nombre y el reparto
+  // vigentes al cobrar, así el historial no cambia si después se edita o se borra el cliente.
+  payments: { cliente: S, nombre: S, mes: M, monto: N, fecha: D, manu: N, elias: N, nico: N, marcadoPor: S },
   settings: { reparto: ["proporcional", "iguales"] },
 };
 const DEFAULT_SETTINGS = { reparto: "proporcional" };
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const MAX_STRING = 500;
 const MAX_OPS = 500;
 
@@ -24,7 +33,7 @@ export async function readState(db) {
   const { results } = await db
     .prepare("SELECT collection, id, data FROM records WHERE deleted = 0 ORDER BY created_at, id")
     .all();
-  const state = { clients: [], expenses: [], ...DEFAULT_SETTINGS };
+  const state = { clients: [], expenses: [], payments: [], ...DEFAULT_SETTINGS };
   for (const row of results) {
     const data = JSON.parse(row.data);
     if (row.collection === "settings") {
@@ -41,13 +50,15 @@ function validValue(type, value) {
   if (type === S) return typeof value === "string" && value.length <= MAX_STRING;
   if (type === N) return value === "" || (typeof value === "number" && Number.isFinite(value));
   if (type === M) return value === "" || (typeof value === "string" && MONTH_RE.test(value));
+  if (type === D) return value === "" || (typeof value === "string" && DATE_RE.test(value));
+  if (type === B) return typeof value === "boolean";
   return false;
 }
 
 function validTarget(op, allowSettings) {
   if (!op || typeof op !== "object") return false;
   if (op.collection === "settings") return allowSettings && op.id === "main";
-  return (op.collection === "clients" || op.collection === "expenses") && typeof op.id === "string" && ID_RE.test(op.id);
+  return Object.hasOwn(FIELDS, op.collection) && typeof op.id === "string" && ID_RE.test(op.id);
 }
 
 // Valida el cuerpo de /api/sync y devuelve { upserts, deletes } limpios.

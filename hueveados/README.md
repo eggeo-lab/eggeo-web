@@ -7,16 +7,22 @@ que atiende solo esa ruta; el resto del sitio sigue en GitHub Pages sin cambios.
 src/worker.js        rutas: login, logout, dashboard y API (todo exige sesión salvo el login)
 src/auth.js          usuarios, límite de intentos y sesiones ("Mantener sesión iniciada": 90 días renovables)
 src/password.js      hash PBKDF2-SHA256 (25.000 iteraciones, para entrar en el plan gratis)
-src/data.js          lectura y guardado en D1 (fusión por campo)
+src/data.js          lectura y guardado en D1 (fusión por campo): clientes, gastos, pagos y ajustes
+src/vault.js         pestaña Cuentas: usuarios y contraseñas de redes, cifradas con AES-GCM
 src/login.js         página de login
 src/dashboard.html   el dashboard (React UMD + Babel), sin datos adentro
 schema.sql           tablas de D1
 migrations/          cambios en los datos de D1 (se aplican con npm run db:migrate)
 scripts/hash-password.mjs   genera contraseñas y sus hashes
+scripts/vault-key.mjs       genera la clave de cifrado de la pestaña Cuentas
 scripts/build-seed.mjs      arma seed.sql desde el SEED de ../dashboard.html (no se commitea)
 ```
 
-Secretos del Worker (nunca en el repo): `HV_PASS_MANU`, `HV_PASS_ELIAS`, `HV_PASS_NICO`.
+Secretos del Worker (nunca en el repo): `HV_PASS_MANU`, `HV_PASS_ELIAS`, `HV_PASS_NICO` y `HV_VAULT_KEY`.
+
+`HV_VAULT_KEY` es la clave que cifra las contraseñas de la pestaña Cuentas. Solo existe en Cloudflare
+(no se puede volver a leer): si se pierde o se reemplaza, las contraseñas guardadas quedan ilegibles
+y hay que cargarlas de nuevo. No correr `npm run secret:vault` una segunda vez.
 
 ## Primera instalación
 
@@ -32,6 +38,7 @@ Todo se corre en una terminal dentro de esta carpeta (`eggeo-ext/hueveados`).
 6. `npx wrangler deploy`: publica el Worker.
 7. `npm run hash` tres veces (una por socio), y por cada hash:
    `npx wrangler secret put HV_PASS_MANU` (después `HV_PASS_ELIAS` y `HV_PASS_NICO`) y pegar el hash.
+   Después, una sola vez: `npm run secret:vault` (crea la clave de cifrado de Cuentas sin mostrarla).
 8. En el panel de Cloudflare: SSL/TLS en **Full** y después proxy (nube naranja) en los registros
    DNS de `eggeo.com.ar` y `www`.
 
@@ -54,5 +61,6 @@ npm run db:schema:local
 npm run db:migrate:local
 npm run db:seed:local
 npm run hash -- "una-contraseña-de-prueba"   # pegar el hash en .dev.vars como HV_PASS_MANU=...
+node scripts/vault-key.mjs                   # pegarla en .dev.vars como HV_VAULT_KEY=...
 npm run dev                                  # http://localhost:8787/hueveados/
 ```

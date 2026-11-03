@@ -6,6 +6,7 @@ import DASHBOARD from "./dashboard.html";
 import { loginPage } from "./login.js";
 import { verifyLogin, createSession, clearSessionCookie, getSession, deleteSession } from "./auth.js";
 import { readState, parseChanges, applyChanges, InvalidChanges } from "./data.js";
+import { listCredentials, saveCredential, revealPassword, InvalidRequest, MissingKey, NotFound } from "./vault.js";
 
 const BASE = "/hueveados";
 const CANONICAL_HOST = "www.eggeo.com.ar";
@@ -78,6 +79,17 @@ async function route(request, env, url, session) {
   }
   if (path === `${BASE}/api/sync` && request.method === "POST") return sync(request, env, url, session);
 
+  if (path === `${BASE}/api/cuentas` && request.method === "GET") return json({ cuentas: await listCredentials(env.DB) });
+  if (path === `${BASE}/api/cuentas/guardar` && request.method === "POST") {
+    return vault(request, url, async (body) => {
+      await saveCredential(env.DB, env, body, session.user);
+      return { cuentas: await listCredentials(env.DB) };
+    });
+  }
+  if (path === `${BASE}/api/cuentas/revelar` && request.method === "POST") {
+    return vault(request, url, async (body) => ({ password: await revealPassword(env.DB, env, body, session.user) }));
+  }
+
   return path.startsWith(`${BASE}/api/`) ? json({ error: "No encontrado" }, 404) : respond("No encontrado", 404);
 }
 
@@ -101,17 +113,40 @@ async function login(request, env, url) {
   return redirect(`${BASE}/`, 303, { "Set-Cookie": await createSession(env.DB, result.user, recordar) });
 }
 
-async function sync(request, env, url, session) {
+// POST con JSON del mismo origen: devuelve el cuerpo ya parseado o la respuesta de error.
+async function readJsonPost(request, url) {
   if (!sameOrigin(request, url)) return json({ error: "Origen inválido" }, 403);
   if (!(request.headers.get("Content-Type") || "").startsWith("application/json")) return json({ error: "Se espera JSON" }, 415);
-
   const text = await request.text();
   if (text.length > MAX_BODY) return json({ error: "Demasiado grande" }, 413);
   try {
-    await applyChanges(env.DB, parseChanges(JSON.parse(text)), session.user);
+    return { body: JSON.parse(text) };
   } catch (err) {
-    if (err instanceof InvalidChanges || err instanceof SyntaxError) return json({ error: err.message }, 400);
+    return json({ error: err.message }, 400);
+  }
+}
+
+async function sync(request, env, url, session) {
+  const parsed = await readJsonPost(request, url);
+  if (parsed instanceof Response) return parsed;
+  try {
+    await applyChanges(env.DB, parseChanges(parsed.body), session.user);
+  } catch (err) {
+    if (err instanceof InvalidChanges) return json({ error: err.message }, 400);
     throw err;
   }
   return json({ user: session.name, ...(await readState(env.DB)) });
+}
+
+async function vault(request, url, handler) {
+  const parsed = await readJsonPost(request, url);
+  if (parsed instanceof Response) return parsed;
+  try {
+    return json(await handler(parsed.body));
+  } catch (err) {
+    if (err instanceof InvalidRequest) return json({ error: err.message }, 400);
+    if (err instanceof NotFound) return json({ error: err.message }, 404);
+    if (err instanceof MissingKey) return json({ error: err.message }, 503);
+    throw err;
+  }
 }

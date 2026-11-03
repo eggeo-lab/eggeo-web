@@ -6,6 +6,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "hash": "node scripts/hash-password.mjs",
+    "secret:vault": "node scripts/vault-key.mjs | wrangler secret put HV_VAULT_KEY",
     "db:schema": "wrangler d1 execute eggeo-hueveados --remote --file=schema.sql",
     "db:seed": "node scripts/build-seed.mjs && wrangler d1 execute eggeo-hueveados --remote --file=seed.sql",
     "db:migrate": "wrangler d1 migrations apply eggeo-hueveados --remote",

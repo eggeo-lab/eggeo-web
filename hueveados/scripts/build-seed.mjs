@@ -30,7 +30,9 @@ const rows = [];
 let order = 1;
 const add = (collection, id, data) => rows.push([collection, id, JSON.stringify(data), order++]);
 
-seed.clients.forEach(({ id, ...data }, i) => add("clients", `seed-c-${String(i + 1).padStart(2, "0")}`, data));
+// Igual que migrations/0002: mes corriente y sin redes elegidas.
+const CLIENT_DEFAULTS = { modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false };
+seed.clients.forEach(({ id, ...data }, i) => add("clients", `seed-c-${String(i + 1).padStart(2, "0")}`, { ...CLIENT_DEFAULTS, ...data }));
 // Los gastos del SEED son suscripciones mensuales activas desde 2026-10 (igual que migrations/0001).
 seed.expenses.forEach(({ id, ...data }, i) =>
   add("expenses", `seed-e-${String(i + 1).padStart(2, "0")}`, { tipo: "mensual", desde: "2026-10", hasta: "", mes: "", ...data }),
