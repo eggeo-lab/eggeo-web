@@ -47,6 +47,11 @@ table.tbl{border-collapse:separate;border-spacing:0;table-layout:fixed}
 table.tbl th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 10px;border-bottom:1px solid var(--line-soft);white-space:nowrap;background:var(--surface);position:sticky;top:0}
 table.tbl td{padding:6px 10px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
 table.tbl tbody tr:hover td{background:var(--hover)}
+/* Primera columna fija (nombre del cliente): fondo opaco para tapar lo que pasa por debajo */
+table.tbl.fija-1 thead th:first-child,table.tbl.fija-1 tbody td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);transition:box-shadow .2s}
+table.tbl.fija-1 thead th:first-child{z-index:2}
+table.tbl.fija-1 tbody tr:hover td:first-child{background:linear-gradient(var(--hover),var(--hover)),var(--surface)}
+.desplazada table.tbl.fija-1 thead th:first-child,.desplazada table.tbl.fija-1 tbody td:first-child{box-shadow:inset -1px 0 0 var(--line-soft),8px 0 12px -8px rgba(0,0,0,.22)}
 table.tbl tfoot td{padding:14px 10px;border-top:1px solid var(--line);border-bottom:none;font-weight:800}
 table.tbl .r{text-align:right}
 table.tbl .c{text-align:center}
@@ -68,7 +73,7 @@ input[type=month].cell::-webkit-calendar-picker-indicator,input[type=date].cell:
 .pct{width:56px;text-align:center;padding:7px 4px}
 
 /* Botones: pastillas como en la web */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:7px 18px;border-radius:999px;font:inherit;font-weight:800;font-size:13px;line-height:1.2;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;transition:transform .3s var(--ease),border-color .2s,background .2s,box-shadow .3s}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;min-height:38px;padding:7px 18px;border-radius:999px;font:inherit;font-weight:800;font-size:13px;line-height:1.2;border:2px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;transition:transform .3s var(--ease),border-color .2s,background .2s,box-shadow .3s}
 .btn:hover{border-color:var(--fg);transform:translateY(-2px)}
 .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .btn-accent{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -398,11 +403,14 @@ function useFinanzas(data, mes) {
 /* ---------- Tablas ---------- */
 // table-layout: fixed + <colgroup>: el encabezado y las filas usan los mismos anchos. La tabla llena
 // el panel y, si las columnas no entran, scrollea en horizontal dentro de él.
-function Tabla({ cols, children }) {
+// fijarPrimera: la primera columna queda fija a la izquierda al scrollear (con sombra mientras hay scroll).
+function Tabla({ cols, fijarPrimera = false, children }) {
   const ancho = cols.reduce((s, w) => s + w, 0);
+  const [desplazada, setDesplazada] = useState(false);
+  const onScroll = fijarPrimera ? (e) => setDesplazada(e.currentTarget.scrollLeft > 0) : undefined;
   return (
-    <div className="scroll-x">
-      <table className="tbl" style={{ width: `max(100%, ${ancho}px)` }}>
+    <div className={`scroll-x${desplazada ? " desplazada" : ""}`} onScroll={onScroll}>
+      <table className={`tbl${fijarPrimera ? " fija-1" : ""}`} style={{ width: `max(100%, ${ancho}px)` }}>
         <colgroup>{cols.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
         {children}
       </table>
@@ -461,7 +469,7 @@ function MesSelector({ mes, setMes }) {
 }
 
 /* ---------- Clientes ---------- */
-const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 170, 210, 170, 50];
+const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 190, 210, 170, 50];
 const MESES_SIN_AJUSTE = 3; // desde cuántos meses sin actualizar el fee aparece el aviso
 
 // Redes que se pueden manejar por cliente (también arman la pestaña Cuentas).
@@ -504,7 +512,7 @@ function ClientsTab({ data, setData }) {
         </div>
         <button className="btn btn-accent" onClick={add}><Icon name="Plus" />Agregar cliente</button>
       </div>
-      <Tabla cols={COLS_CLIENTES}>
+      <Tabla cols={COLS_CLIENTES} fijarPrimera>
         <thead>
           <tr>
             <th>Cliente</th>
@@ -577,7 +585,7 @@ function ClientsTab({ data, setData }) {
 }
 
 /* ---------- Gastos ---------- */
-const COLS_GASTOS = [190, 120, 130, 220, 130, 130, 140, 130];
+const COLS_GASTOS = [180, 120, 130, 240, 130, 130, 130, 130];
 
 function TipoChip({ id, value, onChange }) {
   const mensual = value !== "unica";
@@ -704,7 +712,7 @@ function ExpensesTab({ data, setData, f, mes }) {
                 )}
               </div>
             </div>
-            <Tabla cols={COLS_GASTOS}>
+            <Tabla cols={COLS_GASTOS} fijarPrimera>
               <thead>
                 <tr>
                   <th>Concepto</th>
@@ -894,7 +902,7 @@ function SettlementTab({ data, setData, f, mes }) {
 /* ---------- Pagos ---------- */
 // Cada pago es un registro "<cliente>_<mes de servicio>". A mes corriente, en noviembre se cobra
 // noviembre; a mes vencido, en noviembre se cobra octubre.
-const COLS_PAGOS = [190, 160, 120, 140, 190, 160, 150];
+const COLS_PAGOS = [190, 160, 120, 140, 190, 160, 170];
 const hoyISO = () => { const d = new Date(); return `${aMes(d)}-${String(d.getDate()).padStart(2, "0")}`; };
 const mesServicio = (c, mesCobro) => (c.modalidad === "vencido" ? sumarMeses(mesCobro, -1) : mesCobro);
 const idPago = (clienteId, mes) => `${clienteId}_${mes}`;
@@ -943,7 +951,7 @@ function PagosTab({ data, setData, mes, user }) {
             Mes corriente: en {fmtMesLargo(mes)} se cobra {fmtMesLargo(mes)}. Mes vencido: se cobra {fmtMesLargo(sumarMeses(mes, -1))}. Para cargar pagos viejos, andá al mes con las flechas de arriba.
           </p>
         </div>
-        <Tabla cols={COLS_PAGOS}>
+        <Tabla cols={COLS_PAGOS} fijarPrimera>
           <thead>
             <tr>
               <th>Cliente</th>
