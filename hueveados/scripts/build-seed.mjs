@@ -30,12 +30,13 @@ const rows = [];
 let order = 1;
 const add = (collection, id, data) => rows.push([collection, id, JSON.stringify(data), order++]);
 
-// Igual que migrations/0002: mes corriente y sin redes elegidas.
-const CLIENT_DEFAULTS = { modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false };
+// Igual que migrations/0002 y 0003: mes corriente, sin redes elegidas y activos desde el inicio (nov 2026).
+const CLIENT_DEFAULTS = { modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false, activoDesde: "2026-11", activoHasta: "" };
+const seccionDe = (categoria) => (categoria === "Editor" || categoria === "CM" ? { seccion: "editores", rol: categoria, cuenta: "general" } : { seccion: "plataformas", rol: "", cuenta: "" });
 seed.clients.forEach(({ id, ...data }, i) => add("clients", `seed-c-${String(i + 1).padStart(2, "0")}`, { ...CLIENT_DEFAULTS, ...data }));
-// Los gastos del SEED son suscripciones mensuales activas desde 2026-10 (igual que migrations/0001).
+// Los gastos del SEED son suscripciones mensuales activas desde el inicio (nov 2026), en su sección.
 seed.expenses.forEach(({ id, ...data }, i) =>
-  add("expenses", `seed-e-${String(i + 1).padStart(2, "0")}`, { tipo: "mensual", desde: "2026-10", hasta: "", mes: "", ...data }),
+  add("expenses", `seed-e-${String(i + 1).padStart(2, "0")}`, { tipo: "mensual", desde: "2026-11", hasta: "", mes: "", ...data, ...seccionDe(data.categoria) }),
 );
 if (seed.reparto) add("settings", "main", { reparto: seed.reparto });
 

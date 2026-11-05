@@ -15,9 +15,10 @@ const TOKENS = `
   --fg:#121212; --muted:#555; --faint:#8a8a8a;
   --accent:var(--egg-blue); --accent-ink:#fff;
   --hd-bg:var(--egg-yellow); --hd-fg:var(--egg-blue);
-  --manu:#1f6fd6; --elias:#7b4fd8; --nico:#d2492f;
+  /* Socios y gráficos: paletas validadas para daltonismo (scripts del skill dataviz) en cada tema */
+  --manu:#1f6fd6; --elias:#a43fb0; --nico:#d2492f;
   --good:#146c2e; --warn:#8a5300; --bad:#b3261e; --sub:#0d7480;
-  --chart:#2a5fc4; --chart-hi:#1f4fa8;
+  --chart:#2a5fc4; --chart-hi:#1f4fa8; --chart-2:#c26a1b;
   --shadow:0 10px 24px rgba(0,0,0,.08);
   --ease:cubic-bezier(.16,1,.3,1);
   --font:"Plus Jakarta Sans","Helvetica Neue",Arial,sans-serif;
@@ -29,9 +30,9 @@ const TOKENS = `
   --fg:#f4f4f5; --muted:#a1a1aa; --faint:#71717a;
   --accent:var(--egg-yellow); --accent-ink:var(--egg-blue);
   --hd-bg:var(--egg-blue); --hd-fg:#fff;
-  --manu:#6cb8ff; --elias:#b79cff; --nico:#ff8f7a;
+  --manu:#4596e2; --elias:#b04aa2; --nico:#dc6a3e;
   --good:#5fd4a0; --warn:#f2b84b; --bad:#ff6b6b; --sub:#5cc8d6;
-  --chart:#a68d00; --chart-hi:#c2a500;
+  --chart:#a68d00; --chart-hi:#c2a500; --chart-2:#5b8def;
   --shadow:0 25px 50px -12px rgba(0,0,0,.7);
   color-scheme:dark;
 }`;

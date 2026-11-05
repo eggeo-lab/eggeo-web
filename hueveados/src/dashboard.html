@@ -145,6 +145,33 @@ input[type=month].cell::-webkit-calendar-picker-indicator,input[type=date].cell:
 .chart-tip{position:absolute;top:0;pointer-events:none;background:var(--surface);border:1px solid var(--line-soft);border-radius:14px;padding:10px 12px;font-size:12px;white-space:nowrap;box-shadow:var(--shadow);transform:translateX(-50%);z-index:2}
 .chart-tip .fila{display:flex;align-items:center;gap:10px;justify-content:space-between}
 .chart-tip .key{width:10px;height:2px;border-radius:2px;display:inline-block}
+.leyenda{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--muted)}
+.leyenda>span{display:inline-flex;align-items:center;gap:6px}
+.ley-rect{width:10px;height:10px;border-radius:3px;display:inline-block}
+.ley-linea{width:14px;height:2px;border-radius:2px;display:inline-block}
+.bar-g.activa path{filter:brightness(1.12)}
+
+/* Pagos: fila compacta y descuentos al desplegar */
+.sub{font-size:11px;font-weight:600;color:var(--muted);line-height:1.3}
+.fila-toggle{display:flex;align-items:center;gap:6px;width:100%;min-width:0;background:none;border:none;padding:7px 4px;color:var(--fg);font:inherit;font-weight:800;cursor:pointer;text-align:left;border-radius:10px}
+.fila-toggle:hover{background:var(--raised)}
+.fila-toggle[aria-expanded=true] .acc-chev{transform:rotate(90deg)}
+.fila-toggle:focus-visible,.link-num:focus-visible,.link-mes:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+table.tbl tr.detalle-fila td,table.tbl tbody tr.detalle-fila:hover td{background:var(--bg);padding:0}
+.detalle{position:sticky;left:0;max-width:min(880px,calc(100vw - 48px));padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.desc-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.desc-linea{display:flex;justify-content:space-between;gap:16px;font-size:13px;border-bottom:1px dashed var(--line-soft);padding:4px 0}
+.cubre{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:13px}
+.cubre input{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;margin:0}
+.link-num{background:none;border:none;padding:0;font:inherit;color:var(--bad);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.link-mes{background:none;border:none;padding:0;font:inherit;font-weight:700;color:var(--fg);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+table.tbl tr.fila-mes{cursor:pointer}
+.pct-mes{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:13px}
+.aviso{display:flex;align-items:flex-start;gap:8px;padding:10px 14px;border-radius:14px;font-size:13px;font-weight:600}
+.aviso svg{flex:none;margin-top:2px}
+.aviso-warn{background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn)}
+.aviso-bad{background:color-mix(in srgb,var(--bad) 11%,transparent);color:var(--bad)}
+.aviso-good{background:color-mix(in srgb,var(--good) 11%,transparent);color:var(--good)}
 
 .seg{display:inline-flex;background:var(--raised);border-radius:999px;padding:4px}
 .seg button{border:none;background:transparent;color:var(--muted);padding:6px 14px;border-radius:999px;font:inherit;font-weight:800;font-size:12px;cursor:pointer;transition:background .2s,color .2s}
@@ -186,7 +213,6 @@ const SOCIOS = [
   { key: "nico", name: "Nico", color: "var(--nico)" },
 ];
 const PAGADORES = ["Agencia", "Manu", "Elias", "Nico"];
-const CATEGORIAS = ["Plataforma", "Editor", "CM"];
 
 const uid = () => crypto.randomUUID();
 const money = (n) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(Math.round(n || 0));
@@ -197,9 +223,9 @@ const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov"
 // altas y bajas. Así nunca se pisa lo que otro socio agregó o editó en otros registros; si dos
 // editan el mismo campo, gana el último en guardar.
 const API = "/hueveados/api";
-const COLECCIONES = ["clients", "expenses", "payments"];
+const COLECCIONES = ["clients", "expenses", "payments", "cobros"];
 const AJUSTES = ["reparto"];
-const VACIO = { clients: [], expenses: [], payments: [], reparto: "proporcional" };
+const VACIO = { clients: [], expenses: [], payments: [], cobros: [], reparto: "proporcional" };
 const SAVE_DELAY = 800;
 const POLL_MS = 20000;
 const RETRY_MS = 5000;
@@ -347,9 +373,11 @@ function useDatosCompartidos() {
 
 /* ---------- Meses ---------- */
 const MESES_LARGOS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const INICIO = "2026-11"; // el sistema arranca en noviembre 2026: no hay meses anteriores
 const aMes = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-const mesActual = () => aMes(new Date());
+const mesActual = () => { const m = aMes(new Date()); return m < INICIO ? INICIO : m; };
 const sumarMeses = (ym, n) => { const [y, m] = ym.split("-").map(Number); return aMes(new Date(y, m - 1 + n, 1)); };
+const mesMax = (a, b) => (a > b ? a : b);
 
 function monthsSince(ym) {
   if (!ym) return null;
@@ -359,8 +387,17 @@ function monthsSince(ym) {
 }
 const fmtMonth = (ym) => { if (!ym) return "—"; const [y, m] = ym.split("-"); return `${MESES[+m - 1]} ${y}`; };
 const fmtMesLargo = (ym) => { const [y, m] = ym.split("-"); return `${MESES_LARGOS[+m - 1]} ${y}`; };
+const fmtDia = (iso) => { if (!iso) return ""; const [, m, d] = iso.split("-"); return `${+d} ${MESES[+m - 1]}`; };
+const fmtPct = (x) => `${(x * 100).toFixed(1).replace(".", ",")}%`;
 
 /* ---------- Gastos por mes ---------- */
+const SECCIONES = [
+  { key: "plataformas", titulo: "Plataformas", corto: "Plataformas" },
+  { key: "operativos", titulo: "Gastos operativos", corto: "Operativos" },
+  { key: "editores", titulo: "Editores y CM", corto: "Editores y CM" },
+];
+// Gastos anteriores a las secciones: la sección sale de la categoría.
+const seccionDe = (e) => e.seccion || (e.categoria === "Editor" || e.categoria === "CM" ? "editores" : "plataformas");
 // Un gasto sin "tipo" (anterior a la migración) se toma como suscripción mensual.
 const esMensual = (e) => e.tipo !== "unica";
 const sinFecha = (e) => (esMensual(e) ? !e.desde : !e.mes);
@@ -370,34 +407,136 @@ function aplicaEnMes(e, ym) {
 }
 const suma = (list, val = (x) => x.monto) => list.reduce((s, x) => s + (+val(x) || 0), 0);
 
-function useFinanzas(data, mes) {
-  return useMemo(() => {
-    const gastosMes = data.expenses.filter((e) => aplicaEnMes(e, mes));
-    const ingresos = suma(data.clients, (c) => c.precio);
-    const gastos = suma(gastosMes);
-    const fijos = suma(gastosMes.filter(esMensual));
-    const bruto = { manu: 0, elias: 0, nico: 0 };
-    const porCliente = data.clients.map((c) => {
-      const row = { id: c.id, cliente: c.cliente, precio: +c.precio || 0 };
-      SOCIOS.forEach(({ key }) => { row[key] = ((+c.precio || 0) * (+c[key] || 0)) / 100; bruto[key] += row[key]; });
-      row.sinAsignar = row.precio - row.manu - row.elias - row.nico;
-      return row;
-    });
-    const totalBruto = bruto.manu + bruto.elias + bruto.nico;
-    const peso = {};
-    SOCIOS.forEach(({ key }) => {
-      peso[key] = data.reparto === "iguales" || totalBruto === 0 ? 1 / 3 : bruto[key] / totalBruto;
-    });
-    const liq = {};
-    SOCIOS.forEach(({ key, name }) => {
-      const asignado = gastos * peso[key];
-      const reintegro = suma(gastosMes.filter((e) => e.pagadoPor === name));
-      liq[key] = { bruto: bruto[key], peso: peso[key], asignado, reintegro, ganancia: bruto[key] - asignado, neto: bruto[key] - asignado + reintegro };
-    });
-    const porCategoria = CATEGORIAS.map((cat) => ({ cat, total: suma(gastosMes.filter((e) => e.categoria === cat)) }));
-    const sinAsignar = porCliente.reduce((s, r) => s + r.sinAsignar, 0);
-    return { ingresos, gastos, fijos, unicos: gastos - fijos, gastosMes, neto: ingresos - gastos, margen: ingresos ? (ingresos - gastos) / ingresos : 0, porCliente, liq, porCategoria, sinAsignar };
-  }, [data, mes]);
+/* ---------- Cálculo de un mes ---------- */
+// Un pago cuenta en el mes en que entra la plata ("mes"); "servicio" es el mes que se paga.
+const clienteActivo = (c, ym) => (c.activoDesde || INICIO) <= ym && (!c.activoHasta || c.activoHasta >= ym);
+const mesServicio = (c, mesCobro) => (c.modalidad === "vencido" ? sumarMeses(mesCobro, -1) : mesCobro);
+// En el mes M se le cobra a un cliente si estuvo activo en el mes de servicio. Al inicio del sistema,
+// los que pagan a mes vencido cobran en noviembre el servicio de octubre.
+const cobraEnMes = (c, ym) => clienteActivo(c, mesMax(mesServicio(c, ym), INICIO));
+const idMes = (clienteId, mes) => `${clienteId}_${mes}`;
+const socioPorNombre = (nombre) => SOCIOS.find((s) => s.name === nombre);
+
+// Todo lo de un mes sale de acá: tarjetas, Liquidación, Pagos e Historial usan los mismos números.
+// La base de cada cliente es el monto cobrado si ya pagó, o su fee. El reparto es el actual del cliente
+// (el guardado en el pago solo se usa si el cliente ya no existe).
+function calcularMes(data, mes) {
+  const pagos = new Map(data.payments.filter((p) => p.mes === mes).map((p) => [p.cliente, p]));
+  const filas = data.clients.filter((c) => cobraEnMes(c, mes)).map((c) => ({ c, pago: pagos.get(c.id) }));
+  // Un cobro del mes de un cliente borrado o fuera de período igual entró: se cuenta.
+  for (const p of pagos.values()) {
+    if (!filas.some((r) => r.c.id === p.cliente)) {
+      filas.push({ c: { id: p.cliente, cliente: p.nombre || "Cliente borrado", precio: p.monto, manu: p.manu, elias: p.elias, nico: p.nico, modalidad: "corriente" }, pago: p, huerfano: true });
+    }
+  }
+  for (const r of filas) {
+    const fuente = r.huerfano ? r.pago : r.c;
+    r.base = +(r.pago ? r.pago.monto : r.c.precio) || 0;
+    r.pct = { manu: +fuente.manu || 0, elias: +fuente.elias || 0, nico: +fuente.nico || 0 };
+    r.servicio = r.pago?.servicio || mesServicio(r.c, mes);
+  }
+
+  const ingresos = suma(filas, (r) => r.base);
+  const pagados = filas.filter((r) => r.pago);
+  const cobrado = suma(pagados, (r) => r.pago.monto);
+  const gastosMes = data.expenses.filter((e) => aplicaEnMes(e, mes));
+  const gastos = suma(gastosMes);
+  const porSeccion = Object.fromEntries(SECCIONES.map(({ key }) => [key, suma(gastosMes.filter((e) => seccionDe(e) === key))]));
+  const fijos = suma(gastosMes.filter(esMensual));
+
+  const bruto = { manu: 0, elias: 0, nico: 0 };
+  const porCliente = filas.map((r) => {
+    const row = { id: r.c.id, cliente: r.c.cliente, precio: r.base };
+    SOCIOS.forEach(({ key }) => { row[key] = (r.base * r.pct[key]) / 100; bruto[key] += row[key]; });
+    row.sinAsignar = row.precio - row.manu - row.elias - row.nico;
+    return row;
+  });
+  const totalBruto = bruto.manu + bruto.elias + bruto.nico;
+  const liq = {}, liqProp = {}, pctMes = {};
+  SOCIOS.forEach(({ key, name }) => {
+    const pesoProp = totalBruto ? bruto[key] / totalBruto : 1 / 3;
+    const peso = data.reparto === "iguales" ? 1 / 3 : pesoProp;
+    const reintegro = suma(gastosMes.filter((e) => e.pagadoPor === name));
+    const asignado = gastos * peso;
+    liq[key] = { bruto: bruto[key], peso, asignado, reintegro, ganancia: bruto[key] - asignado, neto: bruto[key] - asignado + reintegro };
+    liqProp[key] = bruto[key] - gastos * pesoProp + reintegro; // "según participación", para verificar Pagos
+    pctMes[key] = ingresos ? bruto[key] / ingresos : 1 / 3; // participación sobre la facturación del mes
+  });
+  const sinAsignar = porCliente.reduce((s, r) => s + r.sinAsignar, 0);
+  return {
+    mes, filas, ingresos, cobrado, nPagos: pagados.length, gastos, gastosMes, porSeccion, fijos, unicos: gastos - fijos,
+    neto: ingresos - gastos, margen: ingresos ? (ingresos - gastos) / ingresos : 0, porCliente, liq, liqProp, pctMes, sinAsignar,
+  };
+}
+const useFinanzas = (data, mes) => useMemo(() => calcularMes(data, mes), [data, mes]);
+
+// Pagos: descuentos de cada cobro y reparto. Los editores/CM asignados a una cuenta se pagan con el cobro
+// de esa cuenta. El resto (plataformas, operativos y editores/CM generales) lo cubren los clientes marcados,
+// en el orden en que se marcaron y hasta su monto: primero lo que se paga a terceros, después los reintegros.
+function repartirCobros(data, mes, f) {
+  const cubre = new Map(data.cobros.filter((x) => x.mes === mes && +x.cubre > 0).map((x) => [x.cliente, +x.cubre]));
+  const enFilas = new Set(f.filas.map((r) => r.c.id));
+  const tercero = (e, monto) => ({ tipo: "tercero", texto: seccionDe(e) === "editores" ? `Pagar a editor/CM ${e.concepto}` : `Pagar ${e.concepto}`, monto, total: monto });
+
+  const propios = new Map();
+  const terceros = [];
+  const reintegroSocio = {};
+  for (const e of f.gastosMes) {
+    const monto = +e.monto || 0;
+    if (!monto) continue;
+    const pagaSocio = socioPorNombre(e.pagadoPor);
+    if (seccionDe(e) === "editores" && e.cuenta && e.cuenta !== "general" && enFilas.has(e.cuenta)) {
+      const l = pagaSocio
+        ? { tipo: "reintegro", socio: pagaSocio.key, texto: `Reintegrar a ${pagaSocio.name}`, nota: `editor/CM ${e.concepto}`, monto, total: monto }
+        : tercero(e, monto);
+      propios.set(e.cuenta, [...(propios.get(e.cuenta) || []), l]);
+    } else if (pagaSocio) {
+      reintegroSocio[pagaSocio.key] = (reintegroSocio[pagaSocio.key] || 0) + monto;
+    } else {
+      terceros.push(tercero(e, monto));
+    }
+  }
+  const comunes = [
+    ...terceros,
+    ...SOCIOS.filter((s) => reintegroSocio[s.key]).map((s) => ({ tipo: "reintegro", socio: s.key, texto: `Reintegrar a ${s.name}`, monto: reintegroSocio[s.key], total: reintegroSocio[s.key] })),
+  ];
+  const totalComunes = suma(comunes);
+
+  const marcados = f.filas.filter((r) => cubre.has(r.c.id)).sort((a, b) => cubre.get(a.c.id) - cubre.get(b.c.id));
+  const pendientes = comunes.map((l) => ({ ...l, restante: l.monto }));
+  const cubierto = new Map();
+  let k = 0;
+  for (const r of marcados) {
+    let capacidad = Math.max(0, r.base - suma(propios.get(r.c.id) || []));
+    const lineas = [];
+    while (capacidad > 0.005 && k < pendientes.length) {
+      const l = pendientes[k];
+      const toma = Math.min(capacidad, l.restante);
+      lineas.push({ tipo: l.tipo, socio: l.socio, texto: l.texto, nota: l.nota, monto: toma, total: l.total });
+      l.restante -= toma;
+      capacidad -= toma;
+      if (l.restante <= 0.005) k++;
+    }
+    cubierto.set(r.c.id, lineas);
+  }
+  const faltante = suma(pendientes, (l) => l.restante);
+
+  const filas = f.filas.map((r) => {
+    const desc = [...(propios.get(r.c.id) || []), ...(cubierto.get(r.c.id) || [])];
+    const descuentos = suma(desc);
+    const aRepartir = r.base - descuentos;
+    const parte = Object.fromEntries(SOCIOS.map(({ key }) => [key, aRepartir * f.pctMes[key]]));
+    return { ...r, desc, descuentos, aRepartir, parte, orden: marcados.indexOf(r) + 1 };
+  });
+  const total = { base: suma(filas, (x) => x.base), descuentos: suma(filas, (x) => x.descuentos), aRepartir: suma(filas, (x) => x.aRepartir), parte: {}, reintegro: {}, socio: {} };
+  SOCIOS.forEach(({ key }) => {
+    total.parte[key] = suma(filas, (x) => x.parte[key]);
+    total.reintegro[key] = suma(filas.flatMap((x) => x.desc).filter((l) => l.tipo === "reintegro" && l.socio === key));
+    total.socio[key] = total.parte[key] + total.reintegro[key];
+  });
+  const diferencias = SOCIOS.filter(({ key }) => Math.abs(total.socio[key] - f.liqProp[key]) > 1);
+  const ultimo = marcados.length ? marcados[marcados.length - 1].c.id : null;
+  return { filas, totalComunes, faltante, hayMarcados: marcados.length > 0, ultimo, total, diferencias };
 }
 
 /* ---------- Tablas ---------- */
@@ -461,7 +600,7 @@ function PartnerCard({ socio, l, ingresos }) {
 function MesSelector({ mes, setMes }) {
   return (
     <div className="mes-sel" role="group" aria-label="Mes">
-      <button className="icon-btn" aria-label="Mes anterior" onClick={() => setMes(sumarMeses(mes, -1))}><Icon name="ChevronLeft" size={18} /></button>
+      <button className="icon-btn" aria-label="Mes anterior" disabled={mes <= INICIO} title={mes <= INICIO ? `El sistema arranca en ${fmtMesLargo(INICIO)}` : undefined} onClick={() => setMes(sumarMeses(mes, -1))}><Icon name="ChevronLeft" size={18} /></button>
       <span className="display mes-nombre" aria-live="polite">{fmtMesLargo(mes)}</span>
       <button className="icon-btn" aria-label="Mes siguiente" onClick={() => setMes(sumarMeses(mes, 1))}><Icon name="ChevronRight" size={18} /></button>
     </div>
@@ -469,7 +608,7 @@ function MesSelector({ mes, setMes }) {
 }
 
 /* ---------- Clientes ---------- */
-const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 190, 210, 170, 50];
+const COLS_CLIENTES = [150, 150, 190, 130, 150, 110, 220, 190, 210, 230, 170, 130];
 const MESES_SIN_AJUSTE = 3; // desde cuántos meses sin actualizar el fee aparece el aviso
 
 // Redes que se pueden manejar por cliente (también arman la pestaña Cuentas).
@@ -492,14 +631,15 @@ function RedesToggle({ cliente, onToggle }) {
   );
 }
 
-function ClientsTab({ data, setData }) {
+function ClientsTab({ data, setData, mes }) {
   const [confirmId, setConfirmId] = useState(null);
   const upd = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
   const add = () => {
-    setData((d) => ({ ...d, clients: [...d.clients, { id: uid(), cliente: "Nuevo cliente", servicio: "Manejo de redes", cuenta: "@", precio: 0, contacto: "", frecuencia: "1 gr/mes", contenido: "", feeAct: mesActual(), manu: 34, elias: 33, nico: 33, modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false }] }));
+    setData((d) => ({ ...d, clients: [...d.clients, { id: uid(), cliente: "Nuevo cliente", servicio: "Manejo de redes", cuenta: "@", precio: 0, contacto: "", frecuencia: "1 gr/mes", contenido: "", feeAct: mesActual(), manu: 34, elias: 33, nico: 33, modalidad: "corriente", tiktok: false, facebook: false, instagram: false, googleAds: false, activoDesde: mesActual(), activoHasta: "" }] }));
   };
   const del = (id) => { setData((d) => ({ ...d, clients: d.clients.filter((c) => c.id !== id) })); setConfirmId(null); };
-  const total = suma(data.clients, (c) => c.precio);
+  const activos = data.clients.filter((c) => clienteActivo(c, mes));
+  const total = suma(activos, (c) => c.precio);
   const texto = (c, field, extra = {}) => <Celda id={`c-${c.id}-${field}`} value={c[field]} onChange={(e) => upd(c.id, field, e.target.value)} {...extra} />;
   const numero = (e) => (e.target.value === "" ? "" : +e.target.value);
 
@@ -508,7 +648,7 @@ function ClientsTab({ data, setData }) {
       <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
         <div>
           <h2 className="display text-lg font-bold">Cartera de clientes</h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Hacé clic en cualquier celda para editarla. Los porcentajes de reparto tienen que sumar 100%.</p>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Hacé clic en cualquier celda para editarla. Los porcentajes de reparto tienen que sumar 100%. Un cliente factura solo en los meses de su período; los que no están activos en {fmtMesLargo(mes)} se ven atenuados.</p>
         </div>
         <button className="btn btn-accent" onClick={add}><Icon name="Plus" />Agregar cliente</button>
       </div>
@@ -524,16 +664,18 @@ function ClientsTab({ data, setData }) {
             <th>Contenido / mes</th>
             <th>Fee actualizado</th>
             <th className="c"><span style={{ color: "var(--manu)" }}>Manu</span> / <span style={{ color: "var(--elias)" }}>Elias</span> / <span style={{ color: "var(--nico)" }}>Nico</span></th>
+            <th>Activo</th>
             <th>Redes</th>
-            <th><span className="sr-only">Acciones</span></th>
+            <th className="r"><span className="sr-only">Acciones</span></th>
           </tr>
         </thead>
         <tbody>
           {data.clients.map((c) => {
             const sum = (+c.manu || 0) + (+c.elias || 0) + (+c.nico || 0);
             const age = monthsSince(c.feeAct);
+            const activo = clienteActivo(c, mes);
             return (
-              <tr key={c.id}>
+              <tr key={c.id} className={activo ? "" : "fuera"}>
                 <td>{texto(c, "cliente", { className: "font-semibold" })}</td>
                 <td>{texto(c, "servicio")}</td>
                 <td>{texto(c, "cuenta", { style: { color: "var(--muted)" } })}</td>
@@ -557,15 +699,28 @@ function ClientsTab({ data, setData }) {
                     {sum === 100 ? <span className="chip chip-good"><Icon name="Check" size={12} />100%</span> : <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />Suma {sum}%</span>}
                   </div>
                 </td>
+                <td>
+                  <div className="flex flex-col gap-1">
+                    <MesCampo id={`c-${c.id}-activoDesde`} label="Desde" value={c.activoDesde} invalido={!c.activoDesde} title={c.activoDesde ? undefined : "Falta el mes de inicio (obligatorio)"} onChange={(v) => upd(c.id, "activoDesde", v)} />
+                    <MesCampo id={`c-${c.id}-activoHasta`} label="Hasta" value={c.activoHasta} title={c.activoHasta ? undefined : "Vacío: sigue activo"} onChange={(v) => upd(c.id, "activoHasta", v)} />
+                  </div>
+                </td>
                 <td><RedesToggle cliente={c} onToggle={(red, v) => upd(c.id, red, v)} /></td>
-                <td className="c">
+                <td className="r">
                   {confirmId === c.id ? (
-                    <div className="flex flex-col items-center gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => del(c.id)}>Borrar</button>
                       <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
                     </div>
                   ) : (
-                    <button className="icon-btn" aria-label={`Eliminar ${c.cliente}`} onClick={() => setConfirmId(c.id)}><Icon name="Trash2" size={15} /></button>
+                    <div className="flex items-center justify-end gap-1">
+                      {c.activoHasta ? (
+                        <button className="chip chip-action" title="Quitar la fecha de fin: vuelve a quedar activo" onClick={() => upd(c.id, "activoHasta", "")}>Reactivar</button>
+                      ) : activo ? (
+                        <button className="chip chip-action" disabled={c.activoDesde === mes} title={c.activoDesde === mes ? "Empezó este mes: usá Borrar" : `Deja de facturar desde ${fmtMesLargo(mes)}`} onClick={() => upd(c.id, "activoHasta", sumarMeses(mes, -1))}>Dar de baja</button>
+                      ) : null}
+                      <button className="icon-btn" aria-label={`Eliminar ${c.cliente}`} onClick={() => setConfirmId(c.id)}><Icon name="Trash2" size={15} /></button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -574,9 +729,9 @@ function ClientsTab({ data, setData }) {
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={3}><span className="eyebrow">Subtotal ingresos · {data.clients.length} clientes</span></td>
+            <td colSpan={3}><span className="eyebrow">Subtotal · {activos.length} activos en {fmtMonth(mes)}</span></td>
             <td className="num r" style={{ color: "var(--accent)" }}>{money(total)}</td>
-            <td colSpan={7}></td>
+            <td colSpan={8}></td>
           </tr>
         </tfoot>
       </Tabla>
@@ -585,7 +740,11 @@ function ClientsTab({ data, setData }) {
 }
 
 /* ---------- Gastos ---------- */
-const COLS_GASTOS = [180, 120, 130, 240, 130, 130, 130, 130];
+// Plataformas y Operativos: Concepto · Tipo · Período · Pagado por · Monto · Nota · acciones.
+// Editores y CM suma Rol y Cuenta (el cliente para el que trabaja, o General).
+const COLS_GASTOS = [200, 130, 240, 140, 130, 170, 130];
+const COLS_EDITORES = [180, 110, 170, 130, 240, 130, 130, 140, 130];
+const ROLES = ["Editor", "CM"];
 
 function TipoChip({ id, value, onChange }) {
   const mensual = value !== "unica";
@@ -602,11 +761,12 @@ function TipoChip({ id, value, onChange }) {
   );
 }
 
+// Campo de mes: no deja elegir meses anteriores al inicio del sistema.
 function MesCampo({ id, label, value, onChange, invalido, title }) {
   return (
     <label className="periodo-fila" title={title}>
       <span>{label}</span>
-      <input id={id} type="month" className={`cell${invalido ? " invalido" : ""}`} value={value || ""} onChange={(e) => onChange(e.target.value)} />
+      <input id={id} type="month" min={INICIO} className={`cell${invalido ? " invalido" : ""}`} value={value || ""} onChange={(e) => onChange(e.target.value && e.target.value < INICIO ? INICIO : e.target.value)} />
     </label>
   );
 }
@@ -623,6 +783,21 @@ function Periodo({ e, upd }) {
   );
 }
 
+const SECCIONES_GASTOS = [
+  {
+    key: "plataformas", hint: "Suscripciones y herramientas. Indicá qué socio la paga para reintegrársela.", boton: "Agregar plataforma",
+    nuevo: () => ({ concepto: "Nueva plataforma", pagadoPor: "Manu", tipo: "mensual", desde: mesActual(), hasta: "", mes: "" }),
+  },
+  {
+    key: "operativos", hint: "Gastos variables: viáticos, alquiler de equipos, gente para filmar…", boton: "Agregar gasto",
+    nuevo: () => ({ concepto: "Nuevo gasto", pagadoPor: "Agencia", tipo: "unica", mes: mesActual(), desde: "", hasta: "" }),
+  },
+  {
+    key: "editores", hint: "Equipo externo. Asignalo a la cuenta para la que trabaja (se paga con ese cobro) o a General si trabaja para varias.", boton: "Agregar editor/CM",
+    nuevo: () => ({ concepto: "Nuevo editor", rol: "Editor", cuenta: "general", pagadoPor: "Agencia", tipo: "mensual", desde: mesActual(), hasta: "", mes: "" }),
+  },
+];
+
 function ExpensesTab({ data, setData, f, mes }) {
   const [confirmId, setConfirmId] = useState(null);
   const [verTodos, setVerTodos] = useState(false);
@@ -635,28 +810,91 @@ function ExpensesTab({ data, setData, f, mes }) {
   const upd = (id, field, val) => editar(id, () => ({ [field]: val }));
   const cambiarTipo = (id, tipo) => editar(id, (x) => (tipo === "mensual" ? { tipo, desde: x.desde || x.mes || mesActual() } : { tipo, mes: x.mes || x.desde || mesActual() }));
   const darDeBaja = (id) => upd(id, "hasta", sumarMeses(mes, -1));
-  const add = (categoria) => {
+  const add = (seccion) => {
     const id = uid();
     fijar(id);
-    setData((d) => ({ ...d, expenses: [...d.expenses, { id, concepto: categoria === "Plataforma" ? "Nueva plataforma" : categoria === "Editor" ? "Editor" : "Community Manager", categoria, pagadoPor: categoria === "Plataforma" ? "Manu" : "Agencia", monto: 0, nota: "", tipo: "unica", mes: mesActual(), desde: "", hasta: "" }] }));
+    const nuevo = SECCIONES_GASTOS.find((s) => s.key === seccion).nuevo();
+    setData((d) => ({ ...d, expenses: [...d.expenses, { id, monto: 0, nota: "", rol: "", cuenta: "", ...nuevo, seccion }] }));
   };
   const del = (id) => { setData((d) => ({ ...d, expenses: d.expenses.filter((x) => x.id !== id) })); setConfirmId(null); };
   const visible = (e) => verTodos || aplicaEnMes(e, mes) || sinFecha(e) || fijados.has(e.id);
+  const clientesOrdenados = [...data.clients].sort((a, b) => String(a.cliente).localeCompare(String(b.cliente), "es"));
 
   const nMensuales = f.gastosMes.filter(esMensual).length;
   const nUnicos = f.gastosMes.length - nMensuales;
-  const groups = [
-    { title: "Plataformas", cat: ["Plataforma"], hint: "Suscripciones y herramientas. Indicá qué socio la paga para reintegrársela en la liquidación.", addCat: "Plataforma" },
-    { title: "Editores y Community Managers", cat: ["Editor", "CM"], hint: "Pagos a equipo externo.", addCat: "Editor" },
-  ];
+
+  const filaGasto = (e, editores) => {
+    const socio = socioPorNombre(e.pagadoPor);
+    const aplica = aplicaEnMes(e, mes);
+    return (
+      <tr key={e.id} className={aplica || sinFecha(e) ? "" : "fuera"}>
+        <td><Celda id={`e-${e.id}-concepto`} className="font-semibold" value={e.concepto} onChange={(ev) => upd(e.id, "concepto", ev.target.value)} /></td>
+        {editores && (
+          <td>
+            <select id={`e-${e.id}-rol`} className="cell" value={e.rol || "Editor"} onChange={(ev) => upd(e.id, "rol", ev.target.value)} aria-label="Rol">
+              {ROLES.map((r) => <option key={r}>{r}</option>)}
+            </select>
+          </td>
+        )}
+        {editores && (
+          <td>
+            <select id={`e-${e.id}-cuenta`} className="cell" value={e.cuenta || "general"} onChange={(ev) => upd(e.id, "cuenta", ev.target.value)} aria-label="Cuenta">
+              <option value="general">General</option>
+              {clientesOrdenados.map((c) => <option key={c.id} value={c.id}>{c.cliente}{clienteActivo(c, mes) ? "" : " (inactivo)"}</option>)}
+            </select>
+          </td>
+        )}
+        <td><TipoChip id={`e-${e.id}-tipo`} value={e.tipo} onChange={(t) => cambiarTipo(e.id, t)} /></td>
+        <td><Periodo e={e} upd={upd} /></td>
+        <td>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="dot" style={{ background: socio ? socio.color : "var(--faint)" }} />
+            <select id={`e-${e.id}-pago`} className="cell" value={e.pagadoPor} onChange={(ev) => upd(e.id, "pagadoPor", ev.target.value)} aria-label="Pagado por">
+              {PAGADORES.map((p) => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+        </td>
+        <td><Celda id={`e-${e.id}-monto`} className="num" type="number" min="0" step="1000" value={e.monto} onChange={(ev) => upd(e.id, "monto", ev.target.value === "" ? "" : +ev.target.value)} /></td>
+        <td><Celda id={`e-${e.id}-nota`} style={{ color: "var(--muted)" }} value={e.nota} placeholder="—" onChange={(ev) => upd(e.id, "nota", ev.target.value)} /></td>
+        <td className="r">
+          {confirmId === e.id ? (
+            <div className="flex items-center justify-end gap-1">
+              <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => del(e.id)}>Borrar</button>
+              <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-1">
+              {esMensual(e) && e.hasta ? (
+                <button className="chip chip-action" title="Quitar la fecha de fin: vuelve a quedar activa" onClick={() => upd(e.id, "hasta", "")}>Reactivar</button>
+              ) : esMensual(e) && aplica ? (
+                <button className="chip chip-action" disabled={e.desde === mes} title={e.desde === mes ? "Empezó este mes: usá Borrar" : `Deja de contar desde ${fmtMesLargo(mes)}`} onClick={() => darDeBaja(e.id)}>Dar de baja</button>
+              ) : null}
+              <button className="icon-btn" aria-label={`Eliminar ${e.concepto}`} onClick={() => setConfirmId(e.id)}><Icon name="Trash2" size={15} /></button>
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {SECCIONES.map(({ key, titulo }) => (
+          <div key={key} className="panel p-4 flex items-center justify-between gap-3">
+            <div>
+              <div className="eyebrow">{titulo} · {fmtMonth(mes)}</div>
+              <div className="num big-num text-lg mt-1">{money(f.porSeccion[key])}</div>
+            </div>
+            <span className="chip chip-muted num">{f.gastos ? ((f.porSeccion[key] / f.gastos) * 100).toFixed(0) : 0}%</span>
+          </div>
+        ))}
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="panel p-4 flex items-center justify-between gap-3">
           <div>
             <div className="eyebrow">Fijos mensuales · {fmtMonth(mes)}</div>
-            <div className="num text-lg mt-1">{money(f.fijos)}</div>
+            <div className="num big-num text-lg mt-1">{money(f.fijos)}</div>
             <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>{nMensuales} suscripcion{nMensuales === 1 ? "" : "es"} activa{nMensuales === 1 ? "" : "s"}</div>
           </div>
           <span className="chip tipo-mensual"><Icon name="Repeat" size={12} />Mensual</span>
@@ -664,22 +902,11 @@ function ExpensesTab({ data, setData, f, mes }) {
         <div className="panel p-4 flex items-center justify-between gap-3">
           <div>
             <div className="eyebrow">Únicos · {fmtMonth(mes)}</div>
-            <div className="num text-lg mt-1">{money(f.unicos)}</div>
+            <div className="num big-num text-lg mt-1">{money(f.unicos)}</div>
             <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>{nUnicos} gasto{nUnicos === 1 ? "" : "s"} de única vez</div>
           </div>
           <span className="chip tipo-unica"><Icon name="Calendar" size={12} />Única vez</span>
         </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {f.porCategoria.map(({ cat, total }) => (
-          <div key={cat} className="panel p-4 flex items-center justify-between gap-3">
-            <div>
-              <div className="eyebrow">{cat === "CM" ? "Community Manager" : cat === "Editor" ? "Editores" : "Plataformas"}</div>
-              <div className="num text-lg mt-1">{money(total)}</div>
-            </div>
-            <span className="chip chip-muted num">{f.gastos ? ((total / f.gastos) * 100).toFixed(0) : 0}%</span>
-          </div>
-        ))}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -691,32 +918,26 @@ function ExpensesTab({ data, setData, f, mes }) {
         </button>
       </div>
 
-      {groups.map((g) => {
-        const rows = data.expenses.filter((e) => g.cat.includes(e.categoria) && visible(e));
-        const sub = suma(rows.filter((e) => aplicaEnMes(e, mes)));
+      {SECCIONES_GASTOS.map((s) => {
+        const { titulo } = SECCIONES.find((x) => x.key === s.key);
+        const editores = s.key === "editores";
+        const rows = data.expenses.filter((e) => seccionDe(e) === s.key && visible(e));
+        const nCols = editores ? COLS_EDITORES.length : COLS_GASTOS.length;
         return (
-          <div key={g.title} className="panel">
+          <div key={s.key} className="panel">
             <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
               <div>
-                <h2 className="display text-lg font-bold">{g.title}</h2>
-                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{g.hint}</p>
+                <h2 className="display text-lg font-bold">{titulo}</h2>
+                <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>{s.hint}</p>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {g.addCat === "Editor" ? (
-                  <>
-                    <button className="btn" onClick={() => add("Editor")}><Icon name="Plus" />Editor</button>
-                    <button className="btn" onClick={() => add("CM")}><Icon name="Plus" />CM</button>
-                  </>
-                ) : (
-                  <button className="btn" onClick={() => add("Plataforma")}><Icon name="Plus" />Agregar plataforma</button>
-                )}
-              </div>
+              <button className="btn" onClick={() => add(s.key)}><Icon name="Plus" />{s.boton}</button>
             </div>
-            <Tabla cols={COLS_GASTOS} fijarPrimera>
+            <Tabla cols={editores ? COLS_EDITORES : COLS_GASTOS} fijarPrimera>
               <thead>
                 <tr>
                   <th>Concepto</th>
-                  <th>Categoría</th>
+                  {editores && <th>Rol</th>}
+                  {editores && <th>Cuenta</th>}
                   <th>Tipo</th>
                   <th>Período</th>
                   <th>Pagado por</th>
@@ -727,56 +948,14 @@ function ExpensesTab({ data, setData, f, mes }) {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-6" style={{ color: "var(--faint)" }}>{verTodos ? "Todavía no hay gastos en esta sección." : `No hay gastos de esta sección en ${fmtMesLargo(mes)}.`}</td></tr>
+                  <tr><td colSpan={nCols} className="text-center py-6" style={{ color: "var(--faint)" }}>{verTodos ? "Todavía no hay gastos en esta sección." : `No hay gastos de esta sección en ${fmtMesLargo(mes)}.`}</td></tr>
                 )}
-                {rows.map((e) => {
-                  const socio = SOCIOS.find((s) => s.name === e.pagadoPor);
-                  const aplica = aplicaEnMes(e, mes);
-                  return (
-                    <tr key={e.id} className={aplica || sinFecha(e) ? "" : "fuera"}>
-                      <td><Celda id={`e-${e.id}-concepto`} className="font-semibold" value={e.concepto} onChange={(ev) => upd(e.id, "concepto", ev.target.value)} /></td>
-                      <td>
-                        <select id={`e-${e.id}-cat`} className="cell" value={e.categoria} onChange={(ev) => upd(e.id, "categoria", ev.target.value)}>
-                          {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
-                        </select>
-                      </td>
-                      <td><TipoChip id={`e-${e.id}-tipo`} value={e.tipo} onChange={(t) => cambiarTipo(e.id, t)} /></td>
-                      <td><Periodo e={e} upd={upd} /></td>
-                      <td>
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="dot" style={{ background: socio ? socio.color : "var(--faint)" }} />
-                          <select id={`e-${e.id}-pago`} className="cell" value={e.pagadoPor} onChange={(ev) => upd(e.id, "pagadoPor", ev.target.value)}>
-                            {PAGADORES.map((p) => <option key={p}>{p}</option>)}
-                          </select>
-                        </div>
-                      </td>
-                      <td><Celda id={`e-${e.id}-monto`} className="num" type="number" min="0" step="1000" value={e.monto} onChange={(ev) => upd(e.id, "monto", ev.target.value === "" ? "" : +ev.target.value)} /></td>
-                      <td><Celda id={`e-${e.id}-nota`} style={{ color: "var(--muted)" }} value={e.nota} placeholder="—" onChange={(ev) => upd(e.id, "nota", ev.target.value)} /></td>
-                      <td className="r">
-                        {confirmId === e.id ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => del(e.id)}>Borrar</button>
-                            <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1">
-                            {esMensual(e) && e.hasta ? (
-                              <button className="chip chip-action" title="Quitar la fecha de fin: vuelve a quedar activa" onClick={() => upd(e.id, "hasta", "")}>Reactivar</button>
-                            ) : esMensual(e) && aplica ? (
-                              <button className="chip chip-action" disabled={e.desde === mes} title={e.desde === mes ? "Empezó este mes: usá Borrar" : `Deja de contar desde ${fmtMesLargo(mes)}`} onClick={() => darDeBaja(e.id)}>Dar de baja</button>
-                            ) : null}
-                            <button className="icon-btn" aria-label={`Eliminar ${e.concepto}`} onClick={() => setConfirmId(e.id)}><Icon name="Trash2" size={15} /></button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {rows.map((e) => filaGasto(e, editores))}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5}><span className="eyebrow">Subtotal · {fmtMonth(mes)}</span></td>
-                  <td className="num r" style={{ color: "var(--bad)" }}>{money(sub)}</td>
+                  <td colSpan={nCols - 3}><span className="eyebrow">Subtotal · {fmtMonth(mes)}</span></td>
+                  <td className="num r" style={{ color: "var(--bad)" }}>{money(f.porSeccion[s.key])}</td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
@@ -900,15 +1079,11 @@ function SettlementTab({ data, setData, f, mes }) {
 }
 
 /* ---------- Pagos ---------- */
-// Cada pago es un registro "<cliente>_<mes de servicio>". A mes corriente, en noviembre se cobra
-// noviembre; a mes vencido, en noviembre se cobra octubre.
-const COLS_PAGOS = [190, 160, 120, 140, 190, 160, 170];
+// Una fila por cliente que se cobra en el mes. La fila muestra totales; los descuentos se ven al desplegarla.
+const COLS_PAGOS = [210, 150, 130, 240, 120, 150, 130, 110, 110, 110];
 const hoyISO = () => { const d = new Date(); return `${aMes(d)}-${String(d.getDate()).padStart(2, "0")}`; };
-const mesServicio = (c, mesCobro) => (c.modalidad === "vencido" ? sumarMeses(mesCobro, -1) : mesCobro);
-const idPago = (clienteId, mes) => `${clienteId}_${mes}`;
 
-function EstadoPago({ pago, precio, mes }) {
-  if (pago) return <span className="chip chip-good"><Icon name="Check" size={12} />Pagado{pago.marcadoPor ? ` · ${pago.marcadoPor}` : ""}</span>;
+function EstadoPendiente({ precio, mes }) {
   if (!(+precio > 0)) return <span className="chip chip-muted">Sin fee</span>;
   const actual = mesActual();
   if (mes < actual) return <span className="chip chip-bad"><Icon name="AlertTriangle" size={12} />Atrasado</span>;
@@ -916,133 +1091,217 @@ function EstadoPago({ pago, precio, mes }) {
   return <span className="chip chip-muted"><Icon name="CalendarClock" size={12} />Próximo</span>;
 }
 
-function PagosTab({ data, setData, mes, user }) {
+function LineaDescuento({ l }) {
+  return (
+    <li className="desc-linea">
+      <span>{l.texto}{l.nota ? <span style={{ color: "var(--muted)" }}> · {l.nota}</span> : null}</span>
+      <span className="num">{money(l.monto)}{l.monto < l.total - 0.5 ? <span style={{ color: "var(--muted)" }}> de {money(l.total)}</span> : null}</span>
+    </li>
+  );
+}
+
+function PagosTab({ data, setData, mes, user, f }) {
+  const r = useMemo(() => repartirCobros(data, mes, f), [data, mes, f]);
+  const [abiertos, setAbiertos] = useState(() => new Set());
   const [confirmId, setConfirmId] = useState(null);
-  const pagos = useMemo(() => new Map(data.payments.map((p) => [p.id, p])), [data.payments]);
-  const filas = data.clients.map((c) => {
-    const servicio = mesServicio(c, mes);
-    return { c, servicio, pago: pagos.get(idPago(c.id, servicio)) };
-  });
-  const pagados = filas.filter((x) => x.pago);
-  const pendientes = filas.filter((x) => !x.pago && +x.c.precio > 0);
-  const cobrables = filas.filter((x) => x.pago || +x.c.precio > 0).length;
+  const alternar = (id) => setAbiertos((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const updCliente = (id, field, val) => setData((d) => ({ ...d, clients: d.clients.map((c) => (c.id === id ? { ...c, [field]: val } : c)) }));
   const updPago = (id, field, val) => setData((d) => ({ ...d, payments: d.payments.map((p) => (p.id === id ? { ...p, [field]: val } : p)) }));
-  const marcar = (c, servicio) => {
-    const id = idPago(c.id, servicio);
-    const pago = { id, cliente: c.id, nombre: c.cliente, mes: servicio, monto: +c.precio || 0, fecha: hoyISO(), manu: +c.manu || 0, elias: +c.elias || 0, nico: +c.nico || 0, marcadoPor: user || "" };
+  const marcar = (fila) => {
+    const c = fila.c, id = idMes(c.id, mes), hoy = hoyISO();
+    const pago = { id, cliente: c.id, nombre: c.cliente, mes, servicio: fila.servicio, monto: +c.precio || 0, fecha: hoy.startsWith(mes) ? hoy : `${mes}-01`, manu: +c.manu || 0, elias: +c.elias || 0, nico: +c.nico || 0, marcadoPor: user || "" };
     setData((d) => ({ ...d, payments: [...d.payments.filter((p) => p.id !== id), pago] }));
   };
   const deshacer = (id) => { setData((d) => ({ ...d, payments: d.payments.filter((p) => p.id !== id) })); setConfirmId(null); };
+  const alternarCubre = (fila) => {
+    const id = idMes(fila.c.id, mes);
+    const registro = { id, cliente: fila.c.id, mes, cubre: fila.orden ? 0 : Date.now() };
+    setData((d) => ({ ...d, cobros: [...d.cobros.filter((x) => x.id !== id), registro] }));
+  };
+
+  const pagados = r.filas.filter((x) => x.pago);
+  const pendientes = r.filas.filter((x) => !x.pago && x.base > 0);
+  const sinElegir = r.totalComunes > 0.5 && !r.hayMarcados;
+  const falta = r.hayMarcados && r.faltante > 0.5;
+  const nombresSinCien = f.porCliente.filter((x) => x.precio > 0 && Math.abs(x.sinAsignar) > 0.5).map((x) => x.cliente);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label={`Cobrado · ${fmtMonth(mes)}`} value={money(suma(pagados.map((x) => x.pago)))} sub={`${pagados.length} de ${cobrables} clientes`} icon="CircleDollarSign" tone="var(--good)" />
-        <StatCard label="Por cobrar" value={money(suma(pendientes, (x) => x.c.precio))} sub={`${pendientes.length} pago${pendientes.length === 1 ? "" : "s"} sin marcar`} icon="Clock" tone={pendientes.length ? "var(--warn)" : undefined} />
-        <StatCard label="Ticket promedio" value={money(pagados.length ? suma(pagados.map((x) => x.pago)) / pagados.length : 0)} sub="Lo cobrado ÷ clientes que pagaron" icon="Ticket" />
+        <StatCard label={`Cobrado · ${fmtMonth(mes)}`} value={money(f.cobrado)} sub={`${pagados.length} de ${r.filas.length} clientes`} icon="CircleDollarSign" tone="var(--good)" />
+        <StatCard label="Por cobrar" value={money(suma(pendientes, (x) => x.base))} sub={`${pendientes.length} pago${pendientes.length === 1 ? "" : "s"} sin marcar`} icon="Clock" tone={pendientes.length ? "var(--warn)" : undefined} />
+        <StatCard label="Ticket promedio" value={money(f.nPagos ? f.cobrado / f.nPagos : 0)} sub="Lo cobrado ÷ clientes que pagaron" icon="Ticket" />
       </div>
 
       <div className="panel">
-        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
-          <h2 className="display text-lg font-bold">Pagos de {fmtMesLargo(mes)}</h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
-            Mes corriente: en {fmtMesLargo(mes)} se cobra {fmtMesLargo(mes)}. Mes vencido: se cobra {fmtMesLargo(sumarMeses(mes, -1))}. Para cargar pagos viejos, andá al mes con las flechas de arriba.
-          </p>
+        <div className="p-4 flex flex-col gap-3" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <div>
+            <h2 className="display text-lg font-bold">Pagos de {fmtMesLargo(mes)}</h2>
+            <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+              Cada cobro cuenta en el mes en que entra la plata. A mes vencido, en {fmtMesLargo(mes)} se cobra el servicio de {fmtMesLargo(sumarMeses(mes, -1))}. Desplegá un cliente (▸) para ver sus descuentos.
+            </p>
+          </div>
+          <div className="pct-mes">
+            <span className="text-xs font-bold" style={{ color: "var(--muted)" }}>Cada pago se reparte con estos %:</span>
+            {SOCIOS.map((s) => <span key={s.key} className="flex items-center gap-1 font-bold"><span className="dot" style={{ background: s.color }} />{s.name} <span className="num">{fmtPct(f.pctMes[s.key])}</span></span>)}
+          </div>
+          {sinElegir && <div className="aviso aviso-warn" role="status"><Icon name="AlertTriangle" size={14} />Elegí con qué pago se cubren los gastos: hay {money(r.totalComunes)} de plataformas, operativos y editores/CM generales. Marcá "Cubre gastos" en un cliente.</div>}
+          {falta && <div className="aviso aviso-bad" role="status"><Icon name="AlertTriangle" size={14} />Faltan {money(r.faltante)}: marcá otro cliente para cubrir el resto de los gastos.</div>}
         </div>
+
         <Tabla cols={COLS_PAGOS} fijarPrimera>
           <thead>
             <tr>
               <th>Cliente</th>
               <th>Cobro</th>
-              <th>Servicio de</th>
-              <th className="r">Monto</th>
-              <th>Estado</th>
-              <th>Fecha de pago</th>
-              <th className="r"><span className="sr-only">Acciones</span></th>
+              <th className="r">Fee</th>
+              <th>Pago</th>
+              <th>Cubre gastos</th>
+              <th className="r">Descuentos</th>
+              <th className="r">A repartir</th>
+              {SOCIOS.map((s) => <th key={s.key} className="r" style={{ color: s.color }}>{s.name}</th>)}
             </tr>
           </thead>
           <tbody>
-            {filas.length === 0 && <tr><td colSpan={7} className="text-center py-6" style={{ color: "var(--faint)" }}>Todavía no hay clientes.</td></tr>}
-            {filas.map(({ c, servicio, pago }) => (
-              <tr key={c.id}>
-                <td className="font-semibold"><div className="trunc px-2" title={c.cliente}>{c.cliente}</div></td>
-                <td>
-                  <select id={`p-${c.id}-modalidad`} className="cell" value={c.modalidad === "vencido" ? "vencido" : "corriente"} onChange={(e) => updCliente(c.id, "modalidad", e.target.value)} aria-label={`Modalidad de cobro de ${c.cliente}`}>
-                    <option value="corriente">Mes corriente</option>
-                    <option value="vencido">Mes vencido</option>
-                  </select>
-                </td>
-                <td style={{ color: "var(--muted)" }}>{fmtMonth(servicio)}</td>
-                <td>
-                  {pago
-                    ? <Celda id={`p-${pago.id}-monto`} className="num" type="number" min="0" step="10000" value={pago.monto} onChange={(e) => updPago(pago.id, "monto", e.target.value === "" ? "" : +e.target.value)} aria-label={`Monto cobrado a ${c.cliente}`} />
-                    : <div className="num r px-2" style={{ color: "var(--muted)" }}>{money(c.precio)}</div>}
-                </td>
-                <td><EstadoPago pago={pago} precio={c.precio} mes={mes} /></td>
-                <td>
-                  {pago
-                    ? <input id={`p-${pago.id}-fecha`} className="cell" type="date" value={pago.fecha || ""} onChange={(e) => updPago(pago.id, "fecha", e.target.value)} aria-label={`Fecha de pago de ${c.cliente}`} />
-                    : <span className="px-2" style={{ color: "var(--faint)" }}>—</span>}
-                </td>
-                <td className="r">
-                  {!pago ? (
-                    <button className="btn" style={{ padding: "6px 10px" }} onClick={() => marcar(c, servicio)}><Icon name="Check" size={14} />Marcar pagado</button>
-                  ) : confirmId === pago.id ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => deshacer(pago.id)}>Deshacer</button>
-                      <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
-                    </div>
-                  ) : (
-                    <button className="chip chip-action" onClick={() => setConfirmId(pago.id)}>Deshacer pago</button>
+            {r.filas.length === 0 && <tr><td colSpan={COLS_PAGOS.length} className="text-center py-6" style={{ color: "var(--faint)" }}>No hay clientes para cobrar en {fmtMesLargo(mes)}.</td></tr>}
+            {r.filas.map((fila) => {
+              const { c, pago } = fila;
+              const abierto = abiertos.has(c.id);
+              const esUltimo = r.ultimo === c.id;
+              return (
+                <React.Fragment key={c.id}>
+                  <tr className={fila.huerfano ? "fuera" : ""}>
+                    <td>
+                      <button className="fila-toggle" aria-expanded={abierto} aria-controls={`pago-${c.id}`} onClick={() => alternar(c.id)} title={c.cliente}>
+                        <Icon name="ChevronRight" size={15} className="acc-chev" />
+                        <span className="trunc">{c.cliente}</span>
+                      </button>
+                    </td>
+                    <td>
+                      {fila.huerfano ? <span className="sub px-2">Cliente fuera de período</span> : (
+                        <select id={`p-${c.id}-modalidad`} className="cell" value={c.modalidad === "vencido" ? "vencido" : "corriente"} onChange={(e) => updCliente(c.id, "modalidad", e.target.value)} aria-label={`Modalidad de cobro de ${c.cliente}`}>
+                          <option value="corriente">Corriente</option>
+                          <option value="vencido">Vencido</option>
+                        </select>
+                      )}
+                      <div className="sub px-2">servicio {fmtMonth(fila.servicio)}</div>
+                    </td>
+                    <td className="num r">{money(fila.base)}</td>
+                    <td>
+                      {!pago ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <button className="btn" style={{ padding: "5px 12px", minHeight: 32 }} onClick={() => marcar(fila)}><Icon name="Check" size={14} />Marcar pagado</button>
+                          <EstadoPendiente precio={fila.base} mes={mes} />
+                        </div>
+                      ) : confirmId === pago.id ? (
+                        <div className="flex items-center gap-1">
+                          <button className="chip chip-bad" style={{ border: "none", cursor: "pointer" }} onClick={() => deshacer(pago.id)}>Deshacer pago</button>
+                          <button className="icon-btn" aria-label="Cancelar" onClick={() => setConfirmId(null)}><Icon name="X" size={14} /></button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="chip chip-good trunc"><Icon name="Check" size={12} />Pagado{pago.marcadoPor ? ` · ${pago.marcadoPor}` : ""}{pago.fecha ? ` · ${fmtDia(pago.fecha)}` : ""}</span>
+                          <button className="icon-btn" aria-label={`Deshacer pago de ${c.cliente}`} title="Deshacer pago" onClick={() => setConfirmId(pago.id)}><Icon name="Undo2" size={14} /></button>
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <label className="cubre">
+                        <input type="checkbox" checked={!!fila.orden} onChange={() => alternarCubre(fila)} aria-label={`${c.cliente} cubre plataformas y operativos`} />
+                        {fila.orden ? <span className="font-bold">{fila.orden}.º</span> : <span style={{ color: "var(--faint)" }}>No</span>}
+                      </label>
+                      {esUltimo && falta && <div className="sub" style={{ color: "var(--bad)" }}>faltan {moneyCorto(r.faltante)}</div>}
+                    </td>
+                    <td className="num r">
+                      {fila.descuentos ? (
+                        <button className="link-num" onClick={() => alternar(c.id)} aria-expanded={abierto} aria-controls={`pago-${c.id}`}>
+                          − {money(fila.descuentos)}{fila.aRepartir < -0.5 ? " ⚠" : ""}
+                        </button>
+                      ) : <span style={{ color: "var(--faint)" }}>—</span>}
+                    </td>
+                    <td className="num r font-bold" style={fila.aRepartir < -0.5 ? { color: "var(--bad)" } : undefined}>{money(fila.aRepartir)}</td>
+                    {SOCIOS.map((s) => <td key={s.key} className="num r">{money(fila.parte[s.key])}</td>)}
+                  </tr>
+                  {abierto && (
+                    <tr className="detalle-fila">
+                      <td colSpan={COLS_PAGOS.length}>
+                        <div className="detalle" id={`pago-${c.id}`}>
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs" style={{ color: "var(--muted)" }}>
+                            {pago ? (
+                              <>
+                                <label className="flex items-center gap-2 font-bold">Monto cobrado
+                                  <Celda className="num" style={{ width: 130, borderColor: "var(--line-soft)" }} type="number" min="0" step="10000" value={pago.monto} onChange={(e) => updPago(pago.id, "monto", e.target.value === "" ? "" : +e.target.value)} />
+                                </label>
+                                <label className="flex items-center gap-2 font-bold">Fecha de pago
+                                  <input className="cell" style={{ width: 150, borderColor: "var(--line-soft)" }} type="date" value={pago.fecha || ""} onChange={(e) => updPago(pago.id, "fecha", e.target.value)} />
+                                </label>
+                              </>
+                            ) : <span>Sin pagar todavía: se calcula con el fee.</span>}
+                            <span>Servicio de {fmtMesLargo(fila.servicio)}</span>
+                          </div>
+                          <div>
+                            <div className="eyebrow mb-1">Descuentos de este pago</div>
+                            {fila.desc.length ? <ul className="desc-lista">{fila.desc.map((l, i) => <LineaDescuento key={i} l={l} />)}</ul> : <p className="text-xs" style={{ color: "var(--faint)" }}>Sin descuentos.</p>}
+                            {esUltimo && falta && <p className="text-xs mt-1" style={{ color: "var(--bad)" }}>Faltan {money(r.faltante)} para cubrir los gastos: marcá otro cliente.</p>}
+                            {fila.aRepartir < -0.5 && <p className="text-xs mt-1" style={{ color: "var(--bad)" }}>Los editores/CM de esta cuenta superan el pago.</p>}
+                          </div>
+                          <div className="text-xs" style={{ color: "var(--muted)" }}>
+                            A repartir <strong className="num" style={{ color: "var(--fg)" }}>{money(fila.aRepartir)}</strong> →{" "}
+                            {SOCIOS.map((s, i) => <span key={s.key}>{i ? " · " : ""}{s.name} <strong className="num" style={{ color: "var(--fg)" }}>{money(fila.parte[s.key])}</strong> ({fmtPct(f.pctMes[s.key])})</span>)}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
                   )}
-                </td>
-              </tr>
-            ))}
+                </React.Fragment>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={3}><span className="eyebrow">Cobrado · {fmtMonth(mes)}</span></td>
-              <td className="num r" style={{ color: "var(--good)" }}>{money(suma(pagados.map((x) => x.pago)))}</td>
-              <td colSpan={3}></td>
+              <td colSpan={2}><span className="eyebrow" style={{ color: "var(--fg)" }}>Total</span></td>
+              <td className="num r">{money(r.total.base)}</td>
+              <td colSpan={2}></td>
+              <td className="num r" style={{ color: "var(--bad)" }}>− {money(r.total.descuentos)}</td>
+              <td className="num r">{money(r.total.aRepartir)}</td>
+              {SOCIOS.map((s) => <td key={s.key} className="num r">{money(r.total.parte[s.key])}</td>)}
+            </tr>
+            <tr>
+              <td colSpan={7}><span className="eyebrow">+ Reintegros a cada socio</span></td>
+              {SOCIOS.map((s) => <td key={s.key} className="num r" style={{ color: r.total.reintegro[s.key] ? "var(--good)" : "var(--faint)" }}>{r.total.reintegro[s.key] ? `+ ${money(r.total.reintegro[s.key])}` : "—"}</td>)}
+            </tr>
+            <tr>
+              <td colSpan={7}><span className="eyebrow" style={{ color: "var(--fg)" }}>Total por socio</span></td>
+              {SOCIOS.map((s) => <td key={s.key} className="num r" style={{ color: s.color }}>{money(r.total.socio[s.key])}</td>)}
             </tr>
           </tfoot>
         </Tabla>
+        <div className="p-4" style={{ borderTop: "1px solid var(--line-soft)" }}>
+          {r.diferencias.length === 0 ? (
+            <div className="aviso aviso-good" role="status"><Icon name="Check" size={14} />Coincide con la liquidación del mes (según participación): ganancia neta + reintegros de cada socio.</div>
+          ) : (
+            <div className="aviso aviso-bad" role="status">
+              <Icon name="AlertTriangle" size={14} />
+              <div>
+                No coincide con la liquidación del mes (según participación):{" "}
+                {r.diferencias.map((s, i) => <span key={s.key}>{i ? " · " : ""}{s.name} {money(r.total.socio[s.key])} acá, {money(f.liqProp[s.key])} en la liquidación</span>)}.
+                {(sinElegir || falta) && <> Hay {money(sinElegir ? r.totalComunes : r.faltante)} de gastos sin cubrir.</>}
+                {nombresSinCien.length > 0 && <> Reparto ≠ 100% en {nombresSinCien.join(", ")}.</>}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-/* ---------- Stats ---------- */
-// Todo sale de los pagos marcados (asignados a su mes de servicio) y de los gastos de cada mes.
+/* ---------- Gráficos ---------- */
 const compacto = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
 const moneyCorto = (n) => `${n < 0 ? "−" : ""}$${compacto.format(Math.abs(n))}`;
 const fmtMomento = (ms) => new Date(ms).toLocaleString("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-
-function useStats(data, anio) {
-  return useMemo(() => {
-    const actual = mesActual();
-    return Array.from({ length: 12 }, (_, i) => {
-      const m = `${anio}-${String(i + 1).padStart(2, "0")}`;
-      if (m > actual) return null;
-      const pagos = data.payments.filter((p) => p.mes === m);
-      const gastosMes = data.expenses.filter((e) => aplicaEnMes(e, m));
-      const cobrado = suma(pagos);
-      const gastos = suma(gastosMes);
-      const bruto = { manu: 0, elias: 0, nico: 0 };
-      pagos.forEach((p) => SOCIOS.forEach(({ key }) => { bruto[key] += ((+p.monto || 0) * (+p[key] || 0)) / 100; }));
-      const totalBruto = bruto.manu + bruto.elias + bruto.nico;
-      const socio = {};
-      SOCIOS.forEach(({ key, name }) => {
-        const peso = data.reparto === "iguales" || totalBruto === 0 ? 1 / 3 : bruto[key] / totalBruto;
-        const asignado = gastos * peso;
-        socio[key] = { bruto: bruto[key], asignado, ganancia: bruto[key] - asignado, reintegro: suma(gastosMes.filter((e) => e.pagadoPor === name)) };
-      });
-      return { mes: m, cobrado, gastos, ganancia: cobrado - gastos, pagos: pagos.length, ticket: pagos.length ? cobrado / pagos.length : 0, socio };
-    });
-  }, [data, anio]);
-}
+const signo = (n) => ({ color: n < 0 ? "var(--bad)" : undefined });
 
 function escalaLinda(min, max, n = 4) {
   if (min === max) max = min + 1;
@@ -1056,66 +1315,140 @@ function escalaLinda(min, max, n = 4) {
   return { lo, hi, ticks };
 }
 
-// Columnas de ganancia por mes: una sola serie (sin leyenda, la nombra el título), barras de 24px como
-// máximo con el extremo de dato redondeado, grilla de 1px y tooltip por barra con hover y foco.
-function GananciaChart({ filas, anio }) {
+function useAncho() {
   const ref = useRef(null);
   const [ancho, setAncho] = useState(720);
-  const [activa, setActiva] = useState(null);
   useEffect(() => {
     const ro = new ResizeObserver(([e]) => setAncho(Math.max(300, Math.round(e.contentRect.width))));
     ro.observe(ref.current);
     return () => ro.disconnect();
   }, []);
+  return [ref, ancho];
+}
 
-  const alto = 260, m = { t: 24, r: 8, b: 28, l: 60 };
+// Etiqueta de mes en el eje: "nov", y el año en el primer mes y en enero.
+const etiquetaMes = (ym, i) => { const [y, m] = ym.split("-"); return i === 0 || m === "01" ? `${MESES[+m - 1]} ${y.slice(2)}` : MESES[+m - 1]; };
+
+function Leyenda({ series, linea }) {
+  return (
+    <div className="leyenda">
+      {series.map((s) => <span key={s.key}><span className={linea ? "ley-linea" : "ley-rect"} style={{ background: s.color }} />{s.label}</span>)}
+    </div>
+  );
+}
+
+function TipGrafico({ x, ancho, titulo, filas }) {
+  return (
+    <div className="chart-tip" style={{ left: Math.min(Math.max(x, 110), ancho - 110) }}>
+      <div className="eyebrow mb-1" style={{ textTransform: "none", letterSpacing: 0 }}>{titulo}</div>
+      {filas.map((f) => (
+        <div key={f.label} className="fila">
+          <span className="flex items-center gap-2">{f.color ? <span className="key" style={{ background: f.color }} /> : <span style={{ width: 10 }} />}<strong className="num">{money(f.valor)}</strong></span>
+          <span style={{ color: "var(--muted)" }}>{f.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Cada mes es una banda con su zona de clic/hover/foco (más grande que las marcas).
+function ZonaMes({ x, y, w, h, fila, i, setActiva, onMes, etiqueta }) {
+  return (
+    <rect className="bar-hit" x={x} y={y} width={w} height={h} tabIndex={0} role="button" aria-label={etiqueta}
+      onPointerEnter={() => setActiva(i)} onPointerLeave={() => setActiva(null)} onFocus={() => setActiva(i)} onBlur={() => setActiva(null)}
+      onClick={() => onMes(fila.mes)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onMes(fila.mes); } }} />
+  );
+}
+
+const SERIES_BARRAS = [
+  { key: "fact", label: "Facturación", color: "var(--chart)" },
+  { key: "gastos", label: "Gastos", color: "var(--chart-2)" },
+];
+
+// Barras agrupadas por mes: Facturación vs Gastos, un solo eje, 2px de aire entre barras vecinas.
+function BarrasMes({ filas, onMes }) {
+  const [ref, ancho] = useAncho();
+  const [activa, setActiva] = useState(null);
+  const alto = 240, m = { t: 12, r: 8, b: 28, l: 64 };
   const w = ancho - m.l - m.r, h = alto - m.t - m.b;
-  const valores = filas.filter(Boolean).map((f) => f.ganancia);
-  const { lo, hi, ticks } = escalaLinda(Math.min(0, ...valores), Math.max(0, ...valores));
+  const { lo, hi, ticks } = escalaLinda(0, Math.max(0, ...filas.flatMap((f) => [f.fact, f.gastos])));
   const y = (v) => m.t + ((hi - v) / (hi - lo)) * h;
-  const banda = w / 12;
-  const barra = Math.min(24, banda * 0.6);
-  const cx = (i) => m.l + banda * i + banda / 2;
-  const mejor = filas.reduce((b, f, i) => (f && f.ganancia > 0 && (b === null || f.ganancia > filas[b].ganancia) ? i : b), null);
-
-  const forma = (i, v) => {
-    const x0 = cx(i) - barra / 2, x1 = x0 + barra, y0 = y(0), y1 = y(v);
-    const r = Math.min(4, Math.abs(y0 - y1), barra / 2);
-    const s = v >= 0 ? 1 : -1; // el extremo redondeado es el de dato; la base queda recta
-    return `M${x0},${y0} V${y1 + s * r} Q${x0},${y1} ${x0 + r},${y1} H${x1 - r} Q${x1},${y1} ${x1},${y1 + s * r} V${y0} Z`;
+  const banda = w / Math.max(filas.length, 1);
+  const barra = Math.max(4, Math.min(24, (banda * 0.7 - 2) / 2));
+  const inicio = (i) => m.l + banda * i + banda / 2 - barra - 1;
+  const columna = (x, v) => {
+    if (!(v > 0)) return null;
+    const y0 = y(0), yv = y(v), r = Math.min(4, y0 - yv, barra / 2);
+    return `M${x},${y0} V${yv + r} Q${x},${yv} ${x + r},${yv} H${x + barra - r} Q${x + barra},${yv} ${x + barra},${yv + r} V${y0} Z`;
   };
   const f = activa !== null ? filas[activa] : null;
-
   return (
     <div className="chart" ref={ref}>
-      <svg width={ancho} height={alto} role="img" aria-label={`Ganancia de EGGEO por mes en ${anio}. Los valores están en la tabla de abajo.`}>
+      <Leyenda series={SERIES_BARRAS} />
+      <svg width={ancho} height={alto} role="img" aria-label="Facturación y gastos por mes. Los valores están en la tabla de abajo.">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={m.l} x2={ancho - m.r} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--faint)" : "var(--line-soft)"} strokeWidth="1" />
             <text className="tick-y" x={m.l - 8} y={y(t) + 4} textAnchor="end">{moneyCorto(t)}</text>
           </g>
         ))}
-        {MESES.map((nombre, i) => (banda >= 30 || i % 3 === 0) && (
-          <text key={nombre} x={cx(i)} y={alto - 8} textAnchor="middle" style={filas[i] ? undefined : { fill: "var(--faint)" }}>{nombre}</text>
-        ))}
-        {filas.map((fila, i) => fila && (
+        {filas.map((fila, i) => (
           <g key={fila.mes} className={`bar-g${activa === i ? " activa" : ""}`}>
-            {fila.ganancia !== 0 && <path className="bar-mark" d={forma(i, fila.ganancia)} />}
-            {i === mejor && <text className="valor" x={cx(i)} y={y(fila.ganancia) - 6} textAnchor="middle">{moneyCorto(fila.ganancia)}</text>}
-            <rect className="bar-hit" x={m.l + banda * i} y={m.t} width={banda} height={h} tabIndex={0}
-              aria-label={`${fmtMesLargo(fila.mes)}: ganancia ${money(fila.ganancia)}, cobrado ${money(fila.cobrado)}, gastos ${money(fila.gastos)}`}
-              onPointerEnter={() => setActiva(i)} onPointerLeave={() => setActiva(null)} onFocus={() => setActiva(i)} onBlur={() => setActiva(null)} />
+            {columna(inicio(i), fila.fact) && <path d={columna(inicio(i), fila.fact)} fill="var(--chart)" />}
+            {columna(inicio(i) + barra + 2, fila.gastos) && <path d={columna(inicio(i) + barra + 2, fila.gastos)} fill="var(--chart-2)" />}
+            <text x={m.l + banda * i + banda / 2} y={alto - 8} textAnchor="middle">{etiquetaMes(fila.mes, i)}</text>
+            <ZonaMes x={m.l + banda * i} y={m.t} w={banda} h={h} fila={fila} i={i} setActiva={setActiva} onMes={onMes}
+              etiqueta={`${fmtMesLargo(fila.mes)}: facturación ${money(fila.fact)}, gastos ${money(fila.gastos)}. Ver el mes.`} />
           </g>
         ))}
       </svg>
-      {f && (
-        <div className="chart-tip" style={{ left: Math.min(Math.max(cx(activa), 90), ancho - 90) }}>
-          <div className="eyebrow mb-1" style={{ textTransform: "none", letterSpacing: 0 }}>{fmtMesLargo(f.mes)}</div>
-          <div className="fila"><span className="flex items-center gap-2"><span className="key" style={{ background: "var(--chart)" }} /><strong className="num">{money(f.ganancia)}</strong></span><span style={{ color: "var(--muted)" }}>Ganancia</span></div>
-          <div className="fila"><strong className="num" style={{ fontWeight: 500 }}>{money(f.cobrado)}</strong><span style={{ color: "var(--muted)" }}>Cobrado</span></div>
-          <div className="fila"><strong className="num" style={{ fontWeight: 500 }}>{money(f.gastos)}</strong><span style={{ color: "var(--muted)" }}>Gastos</span></div>
-        </div>
-      )}
+      {f && <TipGrafico x={m.l + banda * activa + banda / 2} ancho={ancho} titulo={`${fmtMesLargo(f.mes)} · clic para ver el mes`}
+        filas={[{ label: "Facturación", valor: f.fact, color: "var(--chart)" }, { label: "Gastos", valor: f.gastos, color: "var(--chart-2)" }, { label: "Margen neto", valor: f.neto }]} />}
+    </div>
+  );
+}
+
+// Líneas de 2px con la ganancia de cada socio (en sus colores), punto de 8px con anillo y mira vertical.
+function LineasSocios({ filas, onMes }) {
+  const [ref, ancho] = useAncho();
+  const [activa, setActiva] = useState(null);
+  const alto = 240, m = { t: 16, r: 64, b: 28, l: 64 };
+  const w = ancho - m.l - m.r, h = alto - m.t - m.b;
+  const valores = filas.flatMap((f) => SOCIOS.map((s) => f.socios[s.key]));
+  const { lo, hi, ticks } = escalaLinda(Math.min(0, ...valores), Math.max(0, ...valores));
+  const y = (v) => m.t + ((hi - v) / (hi - lo)) * h;
+  const banda = w / Math.max(filas.length, 1);
+  const x = (i) => m.l + banda * i + banda / 2;
+  const ultimo = filas.length - 1;
+  // Etiquetas directas al final de cada línea, solo si no se pisan (si no, quedan la leyenda y el tooltip).
+  const finales = filas.length ? SOCIOS.map((s) => ({ s, y: y(filas[ultimo].socios[s.key]) })).sort((a, b) => a.y - b.y) : [];
+  const etiquetasOk = finales.every((e, i) => i === 0 || e.y - finales[i - 1].y >= 14);
+  const f = activa !== null ? filas[activa] : null;
+  return (
+    <div className="chart" ref={ref}>
+      <Leyenda series={SOCIOS.map((s) => ({ key: s.key, label: s.name, color: s.color }))} linea />
+      <svg width={ancho} height={alto} role="img" aria-label="Ganancia de cada socio por mes. Los valores están en la tabla de abajo.">
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={m.l} x2={ancho - m.r} y1={y(t)} y2={y(t)} stroke={t === 0 ? "var(--faint)" : "var(--line-soft)"} strokeWidth="1" />
+            <text className="tick-y" x={m.l - 8} y={y(t) + 4} textAnchor="end">{moneyCorto(t)}</text>
+          </g>
+        ))}
+        {filas.map((fila, i) => <text key={fila.mes} x={x(i)} y={alto - 8} textAnchor="middle">{etiquetaMes(fila.mes, i)}</text>)}
+        {activa !== null && <line x1={x(activa)} x2={x(activa)} y1={m.t} y2={m.t + h} stroke="var(--line)" strokeWidth="1" />}
+        {SOCIOS.map((s) => (
+          <g key={s.key}>
+            {filas.length > 1 && <path d={filas.map((fila, i) => `${i ? "L" : "M"}${x(i)},${y(fila.socios[s.key])}`).join(" ")} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+            {filas.map((fila, i) => <circle key={fila.mes} cx={x(i)} cy={y(fila.socios[s.key])} r={activa === i ? 5 : 4} fill={s.color} stroke="var(--surface)" strokeWidth="2" />)}
+          </g>
+        ))}
+        {etiquetasOk && finales.map(({ s, y: yy }) => <text key={s.key} className="valor" x={x(ultimo) + 10} y={yy + 4}>{s.name}</text>)}
+        {filas.map((fila, i) => (
+          <ZonaMes key={fila.mes} x={m.l + banda * i} y={m.t} w={banda} h={h} fila={fila} i={i} setActiva={setActiva} onMes={onMes}
+            etiqueta={`${fmtMesLargo(fila.mes)}: ${SOCIOS.map((s) => `${s.name} ${money(fila.socios[s.key])}`).join(", ")}. Ver el mes.`} />
+        ))}
+      </svg>
+      {f && <TipGrafico x={x(activa)} ancho={ancho} titulo={`${fmtMesLargo(f.mes)} · clic para ver el mes`} filas={SOCIOS.map((s) => ({ label: s.name, valor: f.socios[s.key], color: s.color }))} />}
     </div>
   );
 }
@@ -1130,128 +1463,105 @@ function AnioSelector({ anio, setAnio, min, max }) {
   );
 }
 
-const COLS_BALANCE = [150, 150, 150, 150, 90, 150];
-const COLS_SOCIO = [150, 170, 170, 150, 150];
-const signo = (n) => ({ color: n < 0 ? "var(--bad)" : undefined });
+/* ---------- Historial ---------- */
+// Una fila por mes desde el inicio (nov 2026) hasta el mes actual, con los mismos cálculos del dashboard.
+const COLS_HISTORIAL = [160, 130, 130, 120, 120, 130, 130, 130, 90, 130, 120, 120, 120];
 
-function StatsTab({ data, user }) {
-  const anioActual = +mesActual().slice(0, 4);
-  const anios = data.payments.map((p) => +String(p.mes).slice(0, 4)).filter(Boolean);
-  const primerAnio = Math.min(anioActual, ...anios);
+function HistorialTab({ data, irAMes }) {
+  const actual = mesActual();
+  const anioActual = +actual.slice(0, 4);
   const [anio, setAnio] = useState(anioActual);
-  const filas = useStats(data, anio);
-  // Las tablas arrancan en el primer mes con pagos o gastos (el gráfico mantiene los 12 meses).
-  const desde = filas.findIndex((x) => x && (x.pagos || x.gastos));
-  const meses = desde === -1 ? [] : filas.slice(desde).filter(Boolean);
-  const tot = meses.reduce((t, x) => ({ cobrado: t.cobrado + x.cobrado, gastos: t.gastos + x.gastos, pagos: t.pagos + x.pagos }), { cobrado: 0, gastos: 0, pagos: 0 });
-  const ganancia = tot.cobrado - tot.gastos;
-  const socio = SOCIOS.find((s) => s.name === user);
-  const mio = socio && meses.reduce((t, x) => {
-    const s = x.socio[socio.key];
-    return { bruto: t.bruto + s.bruto, asignado: t.asignado + s.asignado, ganancia: t.ganancia + s.ganancia, reintegro: t.reintegro + s.reintegro };
-  }, { bruto: 0, asignado: 0, ganancia: 0, reintegro: 0 });
+  const filas = useMemo(() => {
+    const out = [];
+    for (let mm = mesMax(INICIO, `${anio}-01`); mm <= actual && mm <= `${anio}-12`; mm = sumarMeses(mm, 1)) {
+      const f = calcularMes(data, mm);
+      out.push({
+        mes: mm, fact: f.ingresos, cobrado: f.cobrado, nPagos: f.nPagos, plat: f.porSeccion.plataformas, oper: f.porSeccion.operativos, edit: f.porSeccion.editores,
+        gastos: f.gastos, neto: f.neto, socios: Object.fromEntries(SOCIOS.map((s) => [s.key, f.liq[s.key].ganancia])),
+      });
+    }
+    return out;
+  }, [data, anio, actual]);
+  const campos = ["fact", "cobrado", "nPagos", "plat", "oper", "edit", "gastos", "neto"];
+  const tot = Object.fromEntries(campos.map((k) => [k, suma(filas, (x) => x[k])]));
+  tot.socios = Object.fromEntries(SOCIOS.map((s) => [s.key, suma(filas, (x) => x.socios[s.key])]));
+  const n = filas.length || 1;
+  const margen = (neto, fact) => (fact ? `${((neto / fact) * 100).toFixed(1).replace(".", ",")}%` : "—");
+  const ticket = (cob, np) => (np ? money(cob / np) : "—");
+  const celdas = (x) => [
+    <td key="fact" className="num r">{money(x.fact)}</td>,
+    <td key="cob" className="num r">{money(x.cobrado)}</td>,
+    <td key="plat" className="num r" style={{ color: "var(--muted)" }}>{money(x.plat)}</td>,
+    <td key="oper" className="num r" style={{ color: "var(--muted)" }}>{money(x.oper)}</td>,
+    <td key="edit" className="num r" style={{ color: "var(--muted)" }}>{money(x.edit)}</td>,
+    <td key="gas" className="num r">{money(x.gastos)}</td>,
+    <td key="neto" className="num r font-bold" style={signo(x.neto)}>{money(x.neto)}</td>,
+    <td key="mg" className="num r">{margen(x.neto, x.fact)}</td>,
+    <td key="tk" className="num r">{ticket(x.cobrado, x.nPagos)}</td>,
+    ...SOCIOS.map((s) => <td key={s.key} className="num r" style={signo(x.socios[s.key])}>{money(x.socios[s.key])}</td>),
+  ];
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <AnioSelector anio={anio} setAnio={setAnio} min={primerAnio} max={anioActual} />
-        <p className="text-xs" style={{ color: "var(--muted)" }}>Calculado con los pagos marcados en la pestaña Pagos (por mes de servicio) y los gastos de cada mes.</p>
+        <AnioSelector anio={anio} setAnio={setAnio} min={+INICIO.slice(0, 4)} max={anioActual} />
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Desde {fmtMesLargo(INICIO)}. Hacé clic en un mes (en los gráficos o en la tabla) para verlo en el dashboard.</p>
       </div>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label={`Cobrado en ${anio}`} value={money(tot.cobrado)} sub={`${tot.pagos} pago${tot.pagos === 1 ? "" : "s"}`} icon="CircleDollarSign" tone="var(--accent)" />
-        <StatCard label={`Gastos en ${anio}`} value={money(tot.gastos)} sub={`${meses.length} mes${meses.length === 1 ? "" : "es"} con movimiento`} icon="Receipt" />
-        <StatCard label={`Ganancia ${anio}`} value={money(ganancia)} sub={tot.cobrado ? `${((ganancia / tot.cobrado) * 100).toFixed(1)}% de lo cobrado` : "Sin pagos marcados"} icon="Wallet" tone={ganancia >= 0 ? "var(--good)" : "var(--bad)"} />
-        <StatCard label="Ticket promedio" value={money(tot.pagos ? tot.cobrado / tot.pagos : 0)} sub={`Promedio por pago en ${anio}`} icon="Ticket" />
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <StatCard label={`Facturación ${anio}`} value={money(tot.fact)} sub={`${filas.length} mes${filas.length === 1 ? "" : "es"}`} icon="TrendingUp" tone="var(--accent)" />
+        <StatCard label={`Cobrado ${anio}`} value={money(tot.cobrado)} sub={tot.fact ? `${((tot.cobrado / tot.fact) * 100).toFixed(0)}% de lo facturado` : "—"} icon="CircleDollarSign" tone="var(--good)" />
+        <StatCard label={`Gastos ${anio}`} value={money(tot.gastos)} sub="Plataformas, operativos y equipo" icon="Receipt" />
+        <StatCard label="Margen neto" value={money(tot.neto)} sub={`${margen(tot.neto, tot.fact)} de la facturación`} icon="Wallet" tone={tot.neto >= 0 ? "var(--good)" : "var(--bad)"} />
+        <StatCard label="Ticket promedio" value={ticket(tot.cobrado, tot.nPagos)} sub={`${tot.nPagos} pago${tot.nPagos === 1 ? "" : "s"} en ${anio}`} icon="Ticket" />
       </section>
 
       <div className="panel">
         <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
-          <h2 className="display text-lg font-bold">Ganancia de EGGEO mes a mes · {anio}</h2>
-          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Cobrado menos gastos de cada mes. Pasá el mouse o el foco por un mes para ver el detalle.</p>
+          <h2 className="display text-lg font-bold">Facturación vs gastos · {anio}</h2>
         </div>
-        <div className="p-4">
-          {tot.pagos === 0 && <p className="text-xs mb-3" style={{ color: "var(--muted)" }}>Todavía no hay pagos marcados en {anio}: por ahora el gráfico solo muestra los gastos. Marcá los pagos en la pestaña Pagos.</p>}
-          <GananciaChart filas={filas} anio={anio} />
+        <div className="p-4">{filas.length ? <BarrasMes filas={filas} onMes={irAMes} /> : <p className="text-xs" style={{ color: "var(--faint)" }}>Sin meses en {anio}.</p>}</div>
+      </div>
+      <div className="panel">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
+          <h2 className="display text-lg font-bold">Ganancia de cada socio · {anio}</h2>
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Ganancia neta de la liquidación de cada mes (sin reintegros).</p>
         </div>
+        <div className="p-4">{filas.length ? <LineasSocios filas={filas} onMes={irAMes} /> : <p className="text-xs" style={{ color: "var(--faint)" }}>Sin meses en {anio}.</p>}</div>
       </div>
 
       <div className="panel">
         <div className="p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
           <h2 className="display text-lg font-bold">Balance {anio}</h2>
         </div>
-        <Tabla cols={COLS_BALANCE}>
+        <Tabla cols={COLS_HISTORIAL} fijarPrimera>
           <thead>
-            <tr><th>Mes</th><th className="r">Cobrado</th><th className="r">Gastos</th><th className="r">Ganancia</th><th className="r">Pagos</th><th className="r">Ticket promedio</th></tr>
+            <tr>
+              <th>Mes</th><th className="r">Facturación</th><th className="r">Cobrado</th><th className="r">Plataformas</th><th className="r">Operativos</th><th className="r">Editores y CM</th>
+              <th className="r">Gastos totales</th><th className="r">Margen neto</th><th className="r">Margen %</th><th className="r">Ticket prom.</th>
+              {SOCIOS.map((s) => <th key={s.key} className="r" style={{ color: s.color }}>{s.name}</th>)}
+            </tr>
           </thead>
           <tbody>
-            {meses.length === 0 && <tr><td colSpan={6} className="text-center py-6" style={{ color: "var(--faint)" }}>No hay pagos ni gastos en {anio}.</td></tr>}
-            {meses.map((x) => (
-              <tr key={x.mes}>
-                <td className="py-3">{fmtMesLargo(x.mes)}</td>
-                <td className="num r">{money(x.cobrado)}</td>
-                <td className="num r" style={{ color: "var(--muted)" }}>{money(x.gastos)}</td>
-                <td className="num r font-semibold" style={signo(x.ganancia)}>{money(x.ganancia)}</td>
-                <td className="num r" style={{ color: "var(--muted)" }}>{x.pagos}</td>
-                <td className="num r">{x.pagos ? money(x.ticket) : "—"}</td>
+            {filas.length === 0 && <tr><td colSpan={COLS_HISTORIAL.length} className="text-center py-6" style={{ color: "var(--faint)" }}>Sin meses en {anio}.</td></tr>}
+            {filas.map((x) => (
+              <tr key={x.mes} className="fila-mes" onClick={() => irAMes(x.mes)}>
+                <td><button className="link-mes" onClick={(e) => { e.stopPropagation(); irAMes(x.mes); }}>{fmtMesLargo(x.mes)}</button></td>
+                {celdas(x)}
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td><span className="eyebrow" style={{ color: "var(--fg)" }}>Total {anio}</span></td>
-              <td className="num r" style={{ color: "var(--accent)" }}>{money(tot.cobrado)}</td>
-              <td className="num r">{money(tot.gastos)}</td>
-              <td className="num r" style={signo(ganancia)}>{money(ganancia)}</td>
-              <td className="num r">{tot.pagos}</td>
-              <td className="num r">{tot.pagos ? money(tot.cobrado / tot.pagos) : "—"}</td>
-            </tr>
-          </tfoot>
-        </Tabla>
-      </div>
-
-      {socio && (
-        <div className="panel" style={{ borderTop: `2px solid ${socio.color}` }}>
-          <div className="flex flex-wrap items-center justify-between gap-3 p-4" style={{ borderBottom: "1px solid var(--line-soft)" }}>
-            <div>
-              <h2 className="display text-lg font-bold flex items-center gap-2"><span className="dot" style={{ background: socio.color }} />Tu ganancia · {socio.name}</h2>
-              <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>Solo vos ves esta sección. Tu parte de cada pago (con el reparto vigente al cobrarlo) menos tu parte de los gastos.</p>
-            </div>
-            <div className="text-right">
-              <div className="eyebrow">Ganaste en {anio}</div>
-              <div className="num big-num text-[28px]" style={signo(mio.ganancia)}>{money(mio.ganancia)}</div>
-            </div>
-          </div>
-          <Tabla cols={COLS_SOCIO}>
-            <thead>
-              <tr><th>Mes</th><th className="r">Tu parte cobrada</th><th className="r">Gastos asignados</th><th className="r">Ganancia neta</th><th className="r">Reintegros</th></tr>
-            </thead>
-            <tbody>
-              {meses.map((x) => {
-                const s = x.socio[socio.key];
-                return (
-                  <tr key={x.mes}>
-                    <td className="py-3">{fmtMesLargo(x.mes)}</td>
-                    <td className="num r">{money(s.bruto)}</td>
-                    <td className="num r" style={{ color: "var(--muted)" }}>− {money(s.asignado)}</td>
-                    <td className="num r font-semibold" style={signo(s.ganancia)}>{money(s.ganancia)}</td>
-                    <td className="num r" style={{ color: s.reintegro ? "var(--good)" : "var(--faint)" }}>{s.reintegro ? `+ ${money(s.reintegro)}` : "—"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
+          {filas.length > 0 && (
             <tfoot>
+              <tr><td><span className="eyebrow" style={{ color: "var(--fg)" }}>Total {anio}</span></td>{celdas(tot)}</tr>
               <tr>
-                <td><span className="eyebrow" style={{ color: "var(--fg)" }}>Total {anio}</span></td>
-                <td className="num r">{money(mio.bruto)}</td>
-                <td className="num r">− {money(mio.asignado)}</td>
-                <td className="num r" style={signo(mio.ganancia)}>{money(mio.ganancia)}</td>
-                <td className="num r">{mio.reintegro ? `+ ${money(mio.reintegro)}` : "—"}</td>
+                <td><span className="eyebrow">Promedio mensual</span></td>
+                {celdas({ ...Object.fromEntries(campos.map((k) => [k, tot[k] / n])), socios: Object.fromEntries(SOCIOS.map((s) => [s.key, tot.socios[s.key] / n])) })}
               </tr>
             </tfoot>
-          </Tabla>
-        </div>
-      )}
+          )}
+        </Tabla>
+      </div>
     </div>
   );
 }
@@ -1475,13 +1785,14 @@ function App() {
     { id: "gastos", label: "Gastos", icon: "Receipt" },
     { id: "pagos", label: "Pagos", icon: "CircleDollarSign" },
     { id: "liquidacion", label: "Liquidación", icon: "PieChart" },
-    { id: "stats", label: "Stats", icon: "BarChart3" },
+    { id: "historial", label: "Historial", icon: "History" },
     { id: "cuentas", label: "Cuentas", icon: "KeyRound" },
   ];
   const [tab, setTabState] = useState(() => { const h = location.hash.slice(1); return tabs.some((t) => t.id === h) ? h : "clientes"; });
   const setTab = (id) => { setTabState(id); history.replaceState(null, "", `#${id}`); };
   const [mes, setMes] = useState(mesActual);
   const f = useFinanzas(data, mes);
+  const irAMes = (m) => { setMes(m); setTab("liquidacion"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const pctIssues = data.clients.filter((c) => (+c.manu || 0) + (+c.elias || 0) + (+c.nico || 0) !== 100).length;
 
   return (
@@ -1511,7 +1822,7 @@ function App() {
           </div>
 
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Facturación total" value={money(f.ingresos)} sub={`${data.clients.length} clientes activos`} icon="TrendingUp" tone="var(--accent)" />
+            <StatCard label="Facturación total" value={money(f.ingresos)} sub={`${f.filas.length} cliente${f.filas.length === 1 ? "" : "s"} con cobro en ${fmtMonth(mes)}`} icon="TrendingUp" tone="var(--accent)" />
             <StatCard label="Gastos totales" value={money(f.gastos)} sub={`${f.gastosMes.length} concepto${f.gastosMes.length === 1 ? "" : "s"} en ${fmtMonth(mes)}`} icon="Receipt" />
             <StatCard label="Margen neto" value={money(f.neto)} sub={`${(f.margen * 100).toFixed(1)}% de la facturación`} icon="Wallet" tone={f.neto >= 0 ? "var(--good)" : "var(--bad)"} />
           </section>
@@ -1527,11 +1838,11 @@ function App() {
             ))}
           </nav>
 
-          {tab === "clientes" && <ClientsTab data={data} setData={setData} />}
+          {tab === "clientes" && <ClientsTab data={data} setData={setData} mes={mes} />}
           {tab === "gastos" && <ExpensesTab data={data} setData={setData} f={f} mes={mes} />}
-          {tab === "pagos" && <PagosTab data={data} setData={setData} mes={mes} user={user} />}
+          {tab === "pagos" && <PagosTab data={data} setData={setData} mes={mes} user={user} f={f} />}
           {tab === "liquidacion" && <SettlementTab data={data} setData={setData} f={f} mes={mes} />}
-          {tab === "stats" && <StatsTab data={data} user={user} />}
+          {tab === "historial" && <HistorialTab data={data} irAMes={irAMes} />}
           {tab === "cuentas" && <CuentasTab data={data} setData={setData} />}
 
           <p className="text-xs" style={{ color: "var(--faint)" }}>Los cambios se guardan solos y los ven Manu, Elias y Nico.</p>

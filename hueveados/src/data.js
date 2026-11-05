@@ -7,17 +7,29 @@
 const S = "string";
 const N = "number";
 const M = "month"; // "AAAA-MM" o vacío
+const MI = "month-desde-inicio"; // como M, pero no antes de INICIO
 const D = "date"; // "AAAA-MM-DD" o vacío
 const B = "boolean";
+// El sistema arranca en noviembre 2026: ningún período, gasto ni cobro puede ser anterior.
+// (El "fee actualizado" y el mes de servicio de un pago sí pueden ser anteriores.)
+const INICIO = "2026-11";
 const FIELDS = {
   clients: {
     cliente: S, servicio: S, cuenta: S, precio: N, contacto: S, frecuencia: S, contenido: S, feeAct: S, manu: N, elias: N, nico: N,
     modalidad: ["corriente", "vencido"], tiktok: B, facebook: B, instagram: B, googleAds: B,
+    activoDesde: MI, activoHasta: MI,
   },
-  expenses: { concepto: S, categoria: S, pagadoPor: S, monto: N, nota: S, tipo: ["mensual", "unica"], mes: M, desde: M, hasta: M },
-  // Un pago por cliente y mes de servicio (id "<cliente>_<AAAA-MM>"). Guarda el nombre y el reparto
-  // vigentes al cobrar, así el historial no cambia si después se edita o se borra el cliente.
-  payments: { cliente: S, nombre: S, mes: M, monto: N, fecha: D, manu: N, elias: N, nico: N, marcadoPor: S },
+  expenses: {
+    concepto: S, categoria: S, pagadoPor: S, monto: N, nota: S, tipo: ["mensual", "unica"], mes: MI, desde: MI, hasta: MI,
+    seccion: ["plataformas", "operativos", "editores"], rol: ["", "Editor", "CM"], cuenta: S, // cuenta: id de cliente o "general"
+  },
+  // Un pago por cliente y mes de cobro (id "<cliente>_<AAAA-MM>"): cuenta en el mes en que entra la plata.
+  // "servicio" es el mes que se está pagando (el anterior, si el cliente paga a mes vencido). Guarda el
+  // nombre y el reparto vigentes al cobrar, así el historial no cambia si después se edita el cliente.
+  payments: { cliente: S, nombre: S, mes: MI, servicio: M, monto: N, fecha: D, manu: N, elias: N, nico: N, marcadoPor: S },
+  // Casillas mensuales de Pagos por cliente (id "<cliente>_<AAAA-MM>"). cubre: 0 = no cubre gastos;
+  // si no, el momento en que se marcó (define quién es el 1.º, 2.º, ...).
+  cobros: { cliente: S, mes: MI, cubre: N },
   settings: { reparto: ["proporcional", "iguales"] },
 };
 const DEFAULT_SETTINGS = { reparto: "proporcional" };
@@ -33,7 +45,7 @@ export async function readState(db) {
   const { results } = await db
     .prepare("SELECT collection, id, data FROM records WHERE deleted = 0 ORDER BY created_at, id")
     .all();
-  const state = { clients: [], expenses: [], payments: [], ...DEFAULT_SETTINGS };
+  const state = { clients: [], expenses: [], payments: [], cobros: [], ...DEFAULT_SETTINGS };
   for (const row of results) {
     const data = JSON.parse(row.data);
     if (row.collection === "settings") {
@@ -50,6 +62,7 @@ function validValue(type, value) {
   if (type === S) return typeof value === "string" && value.length <= MAX_STRING;
   if (type === N) return value === "" || (typeof value === "number" && Number.isFinite(value));
   if (type === M) return value === "" || (typeof value === "string" && MONTH_RE.test(value));
+  if (type === MI) return value === "" || (typeof value === "string" && MONTH_RE.test(value) && value >= INICIO);
   if (type === D) return value === "" || (typeof value === "string" && DATE_RE.test(value));
   if (type === B) return typeof value === "boolean";
   return false;
